@@ -1,9 +1,10 @@
 package middleware
 
 import (
-	"chat_service/pkg/token_manager"
 	"net/http"
 	"strings"
+
+	"chat_service/pkg/token_manager"
 
 	"github.com/labstack/echo/v5"
 )
@@ -26,10 +27,6 @@ func Auth(manager *token_manager.TokenManager) echo.MiddlewareFunc {
 			if err != nil {
 				return echo.NewHTTPError(http.StatusUnauthorized, "invalid authorization token")
 			}
-
-			// if claims.ExpiresAt.Before(time.Now().UTC()) {
-			// 	return echo.NewHTTPError(http.StatusUnauthorized, "expired token")
-			// }
 
 			c.Set("userID", claims.Subject)
 			return next(c)

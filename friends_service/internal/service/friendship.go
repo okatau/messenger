@@ -38,7 +38,9 @@ func NewFriendshipService(
 }
 
 func (f *friendship) SendFriendRequest(ctx context.Context, inviterID, inviteeID string) error {
-	logger := f.logger.With(slog.String("op", "service.friendship.sendfriendrequest"))
+	const op = "service.friendship.sendfriendrequest"
+	logger := f.logger.With(slog.String("op", op))
+
 	if inviterID == inviteeID {
 		return domain.ErrUserInvalidInvitee
 	}
@@ -55,7 +57,9 @@ func (f *friendship) SendFriendRequest(ctx context.Context, inviterID, inviteeID
 }
 
 func (f *friendship) AcceptFriendRequest(ctx context.Context, userID, inviterID string) error {
-	logger := f.logger.With(slog.String("op", "service.friendship.acceptfriendrequest"))
+	const op = "service.friendship.acceptfriendrequest"
+	logger := f.logger.With(slog.String("op", op))
+
 	accepted, err := f.friendshipRepo.AcceptFriend(ctx, userID, inviterID)
 	if err != nil {
 		logger.Error("error reading db", loggerPkg.Err(err))
@@ -68,7 +72,9 @@ func (f *friendship) AcceptFriendRequest(ctx context.Context, userID, inviterID 
 }
 
 func (f *friendship) DeclineFriendRequest(ctx context.Context, userID, inviterID string) error {
-	logger := f.logger.With(slog.String("op", "service.friendship.declinefriendrequest"))
+	const op = "service.friendship.declinefriendrequest"
+	logger := f.logger.With(slog.String("op", op))
+
 	declined, err := f.friendshipRepo.DeclineFriend(ctx, userID, inviterID)
 	if err != nil {
 		logger.Error("error reading db", loggerPkg.Err(err))
@@ -81,7 +87,9 @@ func (f *friendship) DeclineFriendRequest(ctx context.Context, userID, inviterID
 }
 
 func (f *friendship) CancelFriendRequest(ctx context.Context, userID, inviteeID string) error {
-	logger := f.logger.With(slog.String("op", "service.friendship.cancelfriendrequest"))
+	const op = "service.friendship.cancelfriendrequest"
+	logger := f.logger.With(slog.String("op", op))
+
 	cancelled, err := f.friendshipRepo.CancelFriend(ctx, userID, inviteeID)
 	if err != nil {
 		logger.Error("error reading db", loggerPkg.Err(err))
@@ -94,7 +102,9 @@ func (f *friendship) CancelFriendRequest(ctx context.Context, userID, inviteeID 
 }
 
 func (f *friendship) RemoveFriend(ctx context.Context, userID, friendID string) error {
-	logger := f.logger.With(slog.String("op", "service.friendship.removefriend"))
+	const op = "service.friendship.removefriend"
+	logger := f.logger.With(slog.String("op", op))
+
 	removed, err := f.friendshipRepo.RemoveFriend(ctx, userID, friendID)
 	if err != nil {
 		logger.Error("error reading db", loggerPkg.Err(err))
@@ -106,9 +116,10 @@ func (f *friendship) RemoveFriend(ctx context.Context, userID, friendID string) 
 	return nil
 }
 
-// GETTERS
 func (f *friendship) GetFriendsList(ctx context.Context, userID string) ([]*domain.User, error) {
-	logger := f.logger.With(slog.String("op", "service.friendship.getfriendslist"))
+	const op = "service.friendship.getfriendslist"
+	logger := f.logger.With(slog.String("op", op))
+
 	friends, err := f.friendshipRepo.GetFriends(ctx, userID)
 	if err != nil {
 		logger.Error("error reading db", loggerPkg.Err(err))
@@ -118,7 +129,9 @@ func (f *friendship) GetFriendsList(ctx context.Context, userID string) ([]*doma
 }
 
 func (f *friendship) FindMatchingUsers(ctx context.Context, username, cursor string) ([]*domain.User, error) {
-	logger := f.logger.With(slog.String("op", "service.friendship.getfriendslist"))
+	const op = "service.friendship.getfriendslist"
+	logger := f.logger.With(slog.String("op", op))
+
 	users, err := f.userRepo.GetUsersByUsername(ctx, username, cursor)
 	if err != nil {
 		logger.Error("error reading db", loggerPkg.Err(err))

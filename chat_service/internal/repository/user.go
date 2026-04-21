@@ -1,8 +1,9 @@
 package repository
 
 import (
-	"chat_service/internal/domain"
 	"context"
+
+	"chat_service/internal/domain"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -16,7 +17,7 @@ type userRepo struct {
 	pool *pgxpool.Pool
 }
 
-func NewUserRepo(pool *pgxpool.Pool) UserRepository {
+func NewUserRepository(pool *pgxpool.Pool) UserRepository {
 	return &userRepo{pool: pool}
 }
 
@@ -28,7 +29,7 @@ func (r *userRepo) GetUserByID(ctx context.Context, userID string) (*domain.User
 	`
 
 	var user domain.User
-	err := r.pool.QueryRow(ctx, query, userID).Scan(&user.ID, &user.Name, &user.Email)
+	err := r.pool.QueryRow(ctx, query, userID).Scan(&user.ID, &user.Username, &user.Email)
 	if err == pgx.ErrNoRows {
 		return nil, nil
 	}

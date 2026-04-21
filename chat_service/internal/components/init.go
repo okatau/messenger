@@ -1,16 +1,17 @@
 package components
 
 import (
-	"chat_service/internal/repository"
-	"chat_service/internal/service"
-	"chat_service/pkg/config"
-	"chat_service/pkg/logger"
-	"chat_service/pkg/token_manager"
 	"context"
 	"encoding/base64"
 	"fmt"
 	"log"
 	"log/slog"
+
+	"chat_service/internal/repository"
+	"chat_service/internal/service"
+	"chat_service/pkg/config"
+	"chat_service/pkg/logger"
+	"chat_service/pkg/token_manager"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -37,7 +38,7 @@ type Components struct {
 	Logger       *slog.Logger
 }
 
-func InitComponents(ctx context.Context, cfg *Config) *Components {
+func InitComponents(ctx context.Context, hubCtx context.Context, cfg *Config) *Components {
 	dsn := getPostgresDSN(cfg.Postgres)
 
 	pool, err := pgxpool.New(ctx, dsn)
@@ -69,10 +70,10 @@ func InitComponents(ctx context.Context, cfg *Config) *Components {
 	}
 
 	roomRepo := repository.NewRoomRepository(pool)
-	userRepo := repository.NewUserRepo(pool)
+	userRepo := repository.NewUserRepository(pool)
 	msgRepo := repository.NewMessageRepository(pool, rdb)
 
-	hub := service.NewHub(userRepo, roomRepo, msgRepo, logger)
+	hub := service.NewHub(hubCtx, userRepo, roomRepo, msgRepo, logger)
 
 	return &Components{
 		Postgres:     pool,

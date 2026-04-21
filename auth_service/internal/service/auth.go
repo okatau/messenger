@@ -1,13 +1,14 @@
 package service
 
 import (
+	"context"
+	"log/slog"
+	"time"
+
 	"auth_service/internal/domain"
 	"auth_service/internal/repository"
 	loggerPkg "auth_service/pkg/logger"
 	"auth_service/pkg/token_manager"
-	"context"
-	"log/slog"
-	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -18,8 +19,8 @@ const (
 
 type Auth interface {
 	Register(ctx context.Context, name, email, password string) (*domain.User, error)
-	Login(ctx context.Context, email, password string) (*domain.UserInfo, error)
-	Refresh(ctx context.Context, token string) (*domain.UserInfo, error)
+	Login(ctx context.Context, email, password string) (*domain.AuthSession, error)
+	Refresh(ctx context.Context, token string) (*domain.AuthSession, error)
 	Logout(ctx context.Context, token string) error
 }
 
@@ -30,7 +31,7 @@ type auth struct {
 	logger       *slog.Logger
 }
 
-func NewAuth(
+func NewAuthService(
 	userRepo repository.UserRepository,
 	sessionRepo repository.SessionRepository,
 	tokenManager *token_manager.TokenManager,
@@ -45,7 +46,8 @@ func NewAuth(
 }
 
 func (a *auth) Register(ctx context.Context, name, email, password string) (*domain.User, error) {
-	logger := a.logger.With(slog.String("op", "auth.service.register"))
+	const op = "auth.service.register"
+	logger := a.logger.With(slog.String("op", op))
 
 	existing, err := a.userRepo.GetUserByEmail(ctx, email)
 	if err != nil {
@@ -53,7 +55,7 @@ func (a *auth) Register(ctx context.Context, name, email, password string) (*dom
 		return nil, err
 	}
 	if existing != nil {
-		return nil, domain.ErrUserExist
+		return nil, domain.ErrUserExists
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -62,7 +64,7 @@ func (a *auth) Register(ctx context.Context, name, email, password string) (*dom
 		return nil, err
 	}
 
-	user, err := a.userRepo.AddUser(ctx, name, email, string(hash))
+	user, err := a.userRepo.CreateUser(ctx, name, email, string(hash))
 	if err != nil {
 		logger.Error("error add user to db", loggerPkg.Err(err))
 		return nil, err
@@ -71,8 +73,9 @@ func (a *auth) Register(ctx context.Context, name, email, password string) (*dom
 	return user, nil
 }
 
-func (a *auth) Login(ctx context.Context, email, password string) (*domain.UserInfo, error) {
-	logger := a.logger.With(slog.String("op", "auth.service.login"))
+func (a *auth) Login(ctx context.Context, email, password string) (*domain.AuthSession, error) {
+	const op = "auth.service.login"
+	logger := a.logger.With(slog.String("op", op))
 
 	user, err := a.userRepo.GetUserByEmail(ctx, email)
 	if err != nil {
@@ -87,28 +90,29 @@ func (a *auth) Login(ctx context.Context, email, password string) (*domain.UserI
 		return nil, domain.ErrUserForbidden
 	}
 
-	_, err = a.sessionRepo.RemoveSessionsByUserID(ctx, user.ID)
+	_, err = a.sessionRepo.DeleteSessionsByUserID(ctx, user.ID)
 	if err != nil {
 		logger.Error("error deleting session", loggerPkg.Err(err))
 		return nil, err
 	}
 
-	pair, err := a.generateAndSaveTokens(ctx, user.ID, user.Name)
+	pair, err := a.generateAndSaveTokens(ctx, user.ID, user.Username)
 	if err != nil {
 		logger.Error("error generating tokens", loggerPkg.Err(err))
 		return nil, err
 	}
 
-	return &domain.UserInfo{
+	return &domain.AuthSession{
 		UserID:       user.ID,
-		Username:     user.Name,
+		Username:     user.Username,
 		RefreshToken: pair.RefreshToken,
 		AccessToken:  pair.AccessToken,
 	}, nil
 }
 
-func (a *auth) Refresh(ctx context.Context, token string) (*domain.UserInfo, error) {
-	logger := a.logger.With(slog.String("op", "auth.service.refresh"))
+func (a *auth) Refresh(ctx context.Context, token string) (*domain.AuthSession, error) {
+	const op = "auth.service.refresh"
+	logger := a.logger.With(slog.String("op", op))
 
 	session, err := a.sessionRepo.GetSessionByToken(ctx, token)
 	if err != nil {
@@ -123,7 +127,7 @@ func (a *auth) Refresh(ctx context.Context, token string) (*domain.UserInfo, err
 		return nil, domain.ErrTokenExpired
 	}
 
-	_, err = a.sessionRepo.RemoveSession(ctx, token)
+	_, err = a.sessionRepo.DeleteSession(ctx, token)
 	if err != nil {
 		logger.Error("error removing from db", loggerPkg.Err(err))
 		return nil, err
@@ -135,7 +139,7 @@ func (a *auth) Refresh(ctx context.Context, token string) (*domain.UserInfo, err
 		return nil, err
 	}
 
-	return &domain.UserInfo{
+	return &domain.AuthSession{
 		UserID:       session.UserID,
 		Username:     session.Username,
 		RefreshToken: pair.RefreshToken,
@@ -144,7 +148,8 @@ func (a *auth) Refresh(ctx context.Context, token string) (*domain.UserInfo, err
 }
 
 func (a *auth) Logout(ctx context.Context, token string) error {
-	logger := a.logger.With(slog.String("op", "auth.service.logout"))
+	const op = "auth.service.logout"
+	logger := a.logger.With(slog.String("op", op))
 
 	session, err := a.sessionRepo.GetSessionByToken(ctx, token)
 	if err != nil {
@@ -155,7 +160,7 @@ func (a *auth) Logout(ctx context.Context, token string) error {
 		return domain.ErrTokenNotFound
 	}
 
-	_, err = a.sessionRepo.RemoveSession(ctx, token)
+	_, err = a.sessionRepo.DeleteSession(ctx, token)
 	return err
 }
 
@@ -171,7 +176,7 @@ func (a *auth) generateAndSaveTokens(ctx context.Context, userID, username strin
 	}
 
 	expiresAt := time.Now().Add(TokenLifetime)
-	if err := a.sessionRepo.AddSession(ctx, userID, username, refreshToken, expiresAt); err != nil {
+	if err := a.sessionRepo.CreateSession(ctx, userID, username, refreshToken, expiresAt); err != nil {
 		return nil, err
 	}
 

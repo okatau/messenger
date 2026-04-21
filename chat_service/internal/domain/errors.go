@@ -7,7 +7,7 @@ var (
 	ErrUserExists       = errors.New("user exists")
 	ErrUserNoRooms      = errors.New("user doesnt have chats")
 	ErrUserDisconnected = errors.New("user disconnected")
+	ErrUserForbidden    = errors.New("user forbidden")
 	ErrRoomExists       = errors.New("room exists")
 	ErrRoomNotFound     = errors.New("room not found")
-	ErrForbidden        = errors.New("forbidden")
 )

@@ -1,16 +1,17 @@
 package components
 
 import (
-	"auth_service/internal/repository"
-	"auth_service/internal/service"
-	"auth_service/pkg/config"
-	"auth_service/pkg/logger"
-	"auth_service/pkg/token_manager"
 	"context"
 	"encoding/base64"
 	"fmt"
 	"log"
 	"log/slog"
+
+	"auth_service/internal/repository"
+	"auth_service/internal/service"
+	"auth_service/pkg/config"
+	"auth_service/pkg/logger"
+	"auth_service/pkg/token_manager"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -31,7 +32,7 @@ type AuthConfig struct {
 type Components struct {
 	Postgres     *pgxpool.Pool
 	TokenManager *token_manager.TokenManager
-	Auth         service.Auth
+	Svc          service.Auth
 	Logger       *slog.Logger
 }
 
@@ -62,13 +63,13 @@ func InitComponents(ctx context.Context, cfg *Config) *Components {
 		log.Fatal(err)
 	}
 
-	authRepo := repository.NewUserRepositoryPG(pool)
-	tokenRepo := repository.NewSessionRepositoryPG(pool)
-	auth := service.NewAuth(authRepo, tokenRepo, manager, logger)
+	authRepo := repository.NewUserRepository(pool)
+	tokenRepo := repository.NewSessionRepository(pool)
+	svc := service.NewAuthService(authRepo, tokenRepo, manager, logger)
 
 	return &Components{
 		Postgres:     pool,
-		Auth:         auth,
+		Svc:          svc,
 		TokenManager: manager,
 		Logger:       logger,
 	}

@@ -8,9 +8,9 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/go-jose/go-jose/v4/testutils/assert"
-	"github.com/go-jose/go-jose/v4/testutils/require"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type friendshipRepoMock struct{ mock.Mock }
@@ -69,7 +69,7 @@ func setupSvc(t *testing.T, uRepo *userRepoMock, fRepo *friendshipRepoMock) Frie
 func Test_SendFriendRequest(t *testing.T) {
 	alice := "alice"
 	bob := "bob"
-	errDB := errors.New("db down")
+	dbError := errors.New("db down")
 
 	tests := []struct {
 		name    string
@@ -98,9 +98,9 @@ func Test_SendFriendRequest(t *testing.T) {
 			inviter: alice,
 			invitee: bob,
 			setup: func(ur *userRepoMock, fr *friendshipRepoMock) {
-				ur.On("UserExists", mock.Anything, bob).Return(false, errDB)
+				ur.On("UserExists", mock.Anything, bob).Return(false, dbError)
 			},
-			wantErr: errDB,
+			wantErr: dbError,
 		},
 		{
 			name:    "user does not exists",
@@ -117,9 +117,9 @@ func Test_SendFriendRequest(t *testing.T) {
 			invitee: bob,
 			setup: func(ur *userRepoMock, fr *friendshipRepoMock) {
 				ur.On("UserExists", mock.Anything, bob).Return(true, nil)
-				fr.On("AddFriend", mock.Anything, alice, bob).Return(errDB)
+				fr.On("AddFriend", mock.Anything, alice, bob).Return(dbError)
 			},
-			wantErr: errDB,
+			wantErr: dbError,
 		},
 	}
 
@@ -151,7 +151,7 @@ func Test_SendFriendRequest(t *testing.T) {
 func Test_AcceptFriendRequest(t *testing.T) {
 	alice := "alice"
 	bob := "bob"
-	errDB := errors.New("db down")
+	dbError := errors.New("db down")
 
 	tests := []struct {
 		name    string
@@ -173,9 +173,9 @@ func Test_AcceptFriendRequest(t *testing.T) {
 			user:    alice,
 			inviter: bob,
 			setup: func(ur *userRepoMock, fr *friendshipRepoMock) {
-				fr.On("AcceptFriend", mock.Anything, alice, bob).Return(false, errDB)
+				fr.On("AcceptFriend", mock.Anything, alice, bob).Return(false, dbError)
 			},
-			wantErr: errDB,
+			wantErr: dbError,
 		},
 		{
 			name:    "friend request not found",
@@ -216,7 +216,7 @@ func Test_AcceptFriendRequest(t *testing.T) {
 func Test_DeclineFriendRequest(t *testing.T) {
 	alice := "alice"
 	bob := "bob"
-	errDB := errors.New("db down")
+	dbError := errors.New("db down")
 
 	tests := []struct {
 		name    string
@@ -238,9 +238,9 @@ func Test_DeclineFriendRequest(t *testing.T) {
 			user:    alice,
 			inviter: bob,
 			setup: func(ur *userRepoMock, fr *friendshipRepoMock) {
-				fr.On("DeclineFriend", mock.Anything, alice, bob).Return(false, errDB)
+				fr.On("DeclineFriend", mock.Anything, alice, bob).Return(false, dbError)
 			},
-			wantErr: errDB,
+			wantErr: dbError,
 		},
 		{
 			name:    "friend request not found",
@@ -281,7 +281,7 @@ func Test_DeclineFriendRequest(t *testing.T) {
 func Test_CancelFriendRequest(t *testing.T) {
 	alice := "alice"
 	bob := "bob"
-	errDB := errors.New("db down")
+	dbError := errors.New("db down")
 
 	tests := []struct {
 		name    string
@@ -303,9 +303,9 @@ func Test_CancelFriendRequest(t *testing.T) {
 			user:    alice,
 			invitee: bob,
 			setup: func(ur *userRepoMock, fr *friendshipRepoMock) {
-				fr.On("CancelFriend", mock.Anything, alice, bob).Return(false, errDB)
+				fr.On("CancelFriend", mock.Anything, alice, bob).Return(false, dbError)
 			},
-			wantErr: errDB,
+			wantErr: dbError,
 		},
 		{
 			name:    "friend request not found",
@@ -346,7 +346,7 @@ func Test_CancelFriendRequest(t *testing.T) {
 func Test_RemoveFriend(t *testing.T) {
 	alice := "alice"
 	bob := "bob"
-	errDB := errors.New("db down")
+	dbError := errors.New("db down")
 
 	tests := []struct {
 		name    string
@@ -368,9 +368,9 @@ func Test_RemoveFriend(t *testing.T) {
 			user:    alice,
 			invitee: bob,
 			setup: func(ur *userRepoMock, fr *friendshipRepoMock) {
-				fr.On("RemoveFriend", mock.Anything, alice, bob).Return(false, errDB)
+				fr.On("RemoveFriend", mock.Anything, alice, bob).Return(false, dbError)
 			},
-			wantErr: errDB,
+			wantErr: dbError,
 		},
 		{
 			name:    "friend request not found",

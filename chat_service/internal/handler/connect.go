@@ -1,13 +1,14 @@
 package handler
 
 import (
-	"chat_service/internal/domain"
-	"chat_service/internal/service"
-	"chat_service/pkg/token_manager"
 	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
+
+	"chat_service/internal/domain"
+	"chat_service/internal/service"
+	"chat_service/pkg/token_manager"
 
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v5"

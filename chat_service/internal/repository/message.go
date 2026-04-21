@@ -1,15 +1,18 @@
 package repository
 
 import (
-	"chat_service/internal/domain"
 	"context"
 	"encoding/json"
 	"fmt"
 	"time"
 
+	"chat_service/internal/domain"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
+
+// TODO посмотреть как берется сообщения при случае когда в кэше > 50 сообщений
 
 const (
 	cacheSize = 50

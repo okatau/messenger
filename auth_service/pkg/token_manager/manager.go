@@ -1,13 +1,14 @@
 package token_manager
 
 import (
-	el "auth_service/pkg/logger"
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/hex"
 	"errors"
 	"log/slog"
 	"time"
+
+	loggerPkg "auth_service/pkg/logger"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -74,12 +75,12 @@ func (m *TokenManager) VerifyAccessToken(tokenStr string) (*jwt.RegisteredClaims
 		return m.publicKey, nil
 	})
 	if err != nil {
-		logger.Error("error parse with claims", el.Err(err))
+		logger.Error("error parse with claims", loggerPkg.Err(err))
 		return nil, err
 	}
 	claims, ok := token.Claims.(*jwt.RegisteredClaims)
 	if !ok {
-		logger.Error("error parse token", el.Err(err))
+		logger.Error("error parse token", loggerPkg.Err(err))
 		return nil, jwt.ErrSignatureInvalid
 	}
 	return claims, nil

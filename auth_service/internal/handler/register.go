@@ -1,11 +1,12 @@
 package handler
 
 import (
-	"auth_service/internal/domain"
-	"auth_service/internal/service"
 	"errors"
 	"net/http"
 	"strings"
+
+	"auth_service/internal/domain"
+	"auth_service/internal/service"
 
 	"github.com/labstack/echo/v5"
 )
@@ -38,7 +39,7 @@ func Register(auth service.Auth) echo.HandlerFunc {
 		user, err := auth.Register(c.Request().Context(), req.Username, req.Email, req.Password)
 		if err != nil {
 			switch {
-			case errors.Is(err, domain.ErrUserExist):
+			case errors.Is(err, domain.ErrUserExists):
 				echo.NewHTTPError(http.StatusUnauthorized, "user forbidden")
 			default:
 				return echo.NewHTTPError(http.StatusInternalServerError, "server internal error")
@@ -48,7 +49,7 @@ func Register(auth service.Auth) echo.HandlerFunc {
 		return c.JSON(http.StatusCreated, map[string]any{
 			"user_id":  user.ID,
 			"email":    user.Email,
-			"username": user.Name,
+			"username": user.Username,
 		})
 	}
 }

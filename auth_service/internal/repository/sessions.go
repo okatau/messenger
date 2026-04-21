@@ -1,9 +1,10 @@
 package repository
 
 import (
-	"auth_service/internal/domain"
 	"context"
 	"time"
+
+	"auth_service/internal/domain"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -11,16 +12,16 @@ import (
 
 type SessionRepository interface {
 	GetSessionByToken(ctx context.Context, refreshToken string) (*domain.Session, error)
-	AddSession(ctx context.Context, userID, name, refreshToken string, expiresAt time.Time) error
-	RemoveSession(ctx context.Context, refreshToken string) (*domain.Session, error)
-	RemoveSessionsByUserID(ctx context.Context, userID string) ([]*domain.Session, error)
+	CreateSession(ctx context.Context, userID, name, refreshToken string, expiresAt time.Time) error
+	DeleteSession(ctx context.Context, refreshToken string) (*domain.Session, error)
+	DeleteSessionsByUserID(ctx context.Context, userID string) ([]*domain.Session, error)
 }
 
 type sessionRepo struct {
 	pool *pgxpool.Pool
 }
 
-func NewSessionRepositoryPG(pool *pgxpool.Pool) SessionRepository {
+func NewSessionRepository(pool *pgxpool.Pool) SessionRepository {
 	return &sessionRepo{pool: pool}
 }
 
@@ -38,7 +39,7 @@ func (r *sessionRepo) GetSessionByToken(ctx context.Context, refreshToken string
 	return &session, err
 }
 
-func (r *sessionRepo) AddSession(ctx context.Context, userID, name, refreshToken string, expiresAt time.Time) error {
+func (r *sessionRepo) CreateSession(ctx context.Context, userID, name, refreshToken string, expiresAt time.Time) error {
 	query := `
 		INSERT INTO sessions (user_id, name, refresh_token, expires_at)
 		VALUES ($1, $2, $3, $4)
@@ -47,7 +48,7 @@ func (r *sessionRepo) AddSession(ctx context.Context, userID, name, refreshToken
 	return err
 }
 
-func (r *sessionRepo) RemoveSession(ctx context.Context, refreshToken string) (*domain.Session, error) {
+func (r *sessionRepo) DeleteSession(ctx context.Context, refreshToken string) (*domain.Session, error) {
 	query := `
 		DELETE FROM sessions
 		WHERE refresh_token = $1
@@ -61,7 +62,7 @@ func (r *sessionRepo) RemoveSession(ctx context.Context, refreshToken string) (*
 	return &session, err
 }
 
-func (r *sessionRepo) RemoveSessionsByUserID(ctx context.Context, userID string) ([]*domain.Session, error) {
+func (r *sessionRepo) DeleteSessionsByUserID(ctx context.Context, userID string) ([]*domain.Session, error) {
 	query := `
 		DELETE FROM sessions
 		WHERE user_id = $1

@@ -4,16 +4,10 @@ import "time"
 
 type User struct {
 	ID           string    `json:"userId"`
-	Name         string    `json:"name"`
+	Username     string    `json:"username"`
 	Email        string    `json:"email"`
 	PasswordHash string    `json:"passwordHash"`
 	CreatedAt    time.Time `json:"createdAt"`
-}
-
-type RefreshToken struct {
-	Token     string    `json:"token"`
-	UserID    string    `json:"userId"`
-	ExpiresAt time.Time `json:"expiresAt"`
 }
 
 type TokenPair struct {
@@ -29,7 +23,7 @@ type Session struct {
 	ExpiresAt    time.Time `json:"expiresAt"`
 }
 
-type UserInfo struct { // TODO semantics auth info not just info no difference to User type
+type AuthSession struct {
 	UserID       string `json:"userId"`
 	Username     string `json:"username"`
 	RefreshToken string `json:"refreshToken"`

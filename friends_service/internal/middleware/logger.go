@@ -10,9 +10,8 @@ import (
 
 func Logger(logger *slog.Logger) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		logger := logger.With(
-			slog.String("component", "middleware/logger"),
-		)
+		const op = "middleware.logger"
+		logger := logger.With(slog.String("op", op))
 
 		return func(c *echo.Context) error {
 			req := c.Request()

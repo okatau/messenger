@@ -1,10 +1,6 @@
 package main
 
 import (
-	"chat_service/internal/components"
-	"chat_service/internal/handler"
-	"chat_service/internal/middleware"
-	"chat_service/pkg/config"
 	"context"
 	"fmt"
 	"log"
@@ -13,21 +9,26 @@ import (
 	"syscall"
 	"time"
 
+	"chat_service/internal/components"
+	"chat_service/internal/handler"
+	"chat_service/internal/middleware"
+	"chat_service/pkg/config"
+
 	"github.com/labstack/echo/v5"
 )
 
 func main() {
 	ctx := context.Background()
 
+	hubCtx, hubCancel := context.WithCancel(ctx)
+	defer hubCancel()
+
 	ctxTimeout, cancelTimeout := context.WithTimeout(ctx, 10*time.Second)
 	defer cancelTimeout()
 
 	cfg := config.Load[components.Config]()
 
-	components := components.InitComponents(ctxTimeout, cfg)
-
-	hubCtx, hubCancel := context.WithCancel(ctx)
-	defer hubCancel()
+	components := components.InitComponents(ctxTimeout, hubCtx, cfg)
 
 	auth := middleware.Auth(components.TokenManager)
 
@@ -37,7 +38,7 @@ func main() {
 	router.GET("/wss", handler.Connect(components.Hub, components.TokenManager, hubCtx))
 
 	router.GET("", handler.GetRoom(components.Hub), auth)
-	router.GET("/:roomId/active", handler.GetRoomActiveUsers(components.Hub), auth)
+	router.GET("/:roomId/active", handler.GetActiveUsersByRoom(components.Hub), auth)
 	router.GET("/:roomId/messages", handler.GetRoomHistory(components.Hub), auth)
 	router.POST("", handler.CreateRoom(components.Hub), auth)
 	router.POST("/:roomId/invite", handler.InviteUser(components.Hub), auth)

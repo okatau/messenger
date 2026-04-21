@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-jose/go-jose/v4/testutils/assert"
-	"github.com/go-jose/go-jose/v4/testutils/require"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 )
 
@@ -99,14 +99,14 @@ func setup(t *testing.T) (repo FriendshipRepository, aliceID, bobID string) {
 	return
 }
 
-func Test_FriendshipRepo_AddFriend(t *testing.T) {
+func Test_AddFriend(t *testing.T) {
 	repo, aliceID, bobID := setup(t)
 
 	err := repo.AddFriend(t.Context(), aliceID, bobID)
 	require.NoError(t, err)
 }
 
-func Test_FriendshipRepo_AddFriend_Duplicate(t *testing.T) {
+func Test_AddFriend_Duplicate(t *testing.T) {
 	repo, aliceID, bobID := setup(t)
 
 	err := repo.AddFriend(t.Context(), aliceID, bobID)
@@ -116,7 +116,7 @@ func Test_FriendshipRepo_AddFriend_Duplicate(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrFriendReqAlreadyExists)
 }
 
-func Test_FriendshipRepo_AcceptFriend(t *testing.T) {
+func Test_AcceptFriend(t *testing.T) {
 	repo, aliceID, bobID := setup(t)
 
 	err := repo.AddFriend(t.Context(), aliceID, bobID)
@@ -127,7 +127,7 @@ func Test_FriendshipRepo_AcceptFriend(t *testing.T) {
 	assert.Equal(t, accepted, true)
 }
 
-func Test_FriendshipRepo_AcceptFriend_NoInvite(t *testing.T) {
+func Test_AcceptFriend_NoInvite(t *testing.T) {
 	repo, aliceID, bobID := setup(t)
 
 	accepted, err := repo.AcceptFriend(t.Context(), bobID, aliceID)
@@ -135,7 +135,7 @@ func Test_FriendshipRepo_AcceptFriend_NoInvite(t *testing.T) {
 	assert.Equal(t, accepted, false)
 }
 
-func Test_FriendshipRepo_DeclineFriend(t *testing.T) {
+func Test_DeclineFriend(t *testing.T) {
 	repo, aliceID, bobID := setup(t)
 
 	err := repo.AddFriend(t.Context(), aliceID, bobID)
@@ -146,7 +146,7 @@ func Test_FriendshipRepo_DeclineFriend(t *testing.T) {
 	assert.Equal(t, accepted, true)
 }
 
-func Test_FriendshipRepo_DeclineFriend_NoInvite(t *testing.T) {
+func Test_DeclineFriend_NoInvite(t *testing.T) {
 	repo, aliceID, bobID := setup(t)
 
 	accepted, err := repo.DeclineFriend(t.Context(), bobID, aliceID)
@@ -154,7 +154,7 @@ func Test_FriendshipRepo_DeclineFriend_NoInvite(t *testing.T) {
 	assert.Equal(t, accepted, false)
 }
 
-func Test_FriendshipRepo_CancelFriend(t *testing.T) {
+func Test_CancelFriend(t *testing.T) {
 	repo, aliceID, bobID := setup(t)
 
 	err := repo.AddFriend(t.Context(), aliceID, bobID)
@@ -165,7 +165,7 @@ func Test_FriendshipRepo_CancelFriend(t *testing.T) {
 	assert.Equal(t, accepted, true)
 }
 
-func Test_FriendshipRepo_CancelFriend_NoInvite(t *testing.T) {
+func Test_CancelFriend_NoInvite(t *testing.T) {
 	repo, aliceID, bobID := setup(t)
 
 	accepted, err := repo.CancelFriend(t.Context(), aliceID, bobID)
@@ -173,7 +173,7 @@ func Test_FriendshipRepo_CancelFriend_NoInvite(t *testing.T) {
 	assert.Equal(t, accepted, false)
 }
 
-func Test_FriendshipRepo_RemoveFriend(t *testing.T) {
+func Test_RemoveFriend(t *testing.T) {
 	repo, aliceID, bobID := setup(t)
 
 	err := repo.AddFriend(t.Context(), aliceID, bobID)
@@ -187,7 +187,7 @@ func Test_FriendshipRepo_RemoveFriend(t *testing.T) {
 	assert.Equal(t, accepted, true)
 }
 
-func Test_FriendshipRepo_RemoveFriend_NoFriend(t *testing.T) {
+func Test_RemoveFriend_NoFriend(t *testing.T) {
 	repo, aliceID, bobID := setup(t)
 
 	accepted, err := repo.RemoveFriend(t.Context(), aliceID, bobID)

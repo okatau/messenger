@@ -1,11 +1,12 @@
 package service
 
 import (
-	"chat_service/internal/domain"
-	"chat_service/internal/repository"
 	"context"
 	"log/slog"
 	"sync"
+
+	"chat_service/internal/domain"
+	"chat_service/internal/repository"
 )
 
 type Room interface {
@@ -84,7 +85,7 @@ func (r *room) Broadcast(ctx context.Context, msg *domain.Message) {
 }
 
 func (r *room) Run(ctx context.Context) {
-	const op = "handler.room.run"
+	const op = "chat.service.room.run"
 	logger := r.logger.With(slog.String("op", op))
 
 	for {

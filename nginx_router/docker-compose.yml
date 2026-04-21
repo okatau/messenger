@@ -9,6 +9,7 @@ services:
       - auth
       - rooms
       - friends
+      - frontend
 
   postgres:
     image: postgres:16-alpine
@@ -99,6 +100,19 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: "http://localhost:8080"
+        NEXT_PUBLIC_WEBSOCKET_URL: "ws://localhost:8080/api/v1/rooms"
+    expose:
+      - "3000"
+    depends_on:
+      - auth
+      - rooms
+      - friends
 
 volumes:
   postgres_data:

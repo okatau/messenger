@@ -52,16 +52,16 @@ func (r *userRepo) GetUsersByUsername(ctx context.Context, name, cursor string) 
 	defer rows.Close()
 
 	for rows.Next() {
-		var u domain.User
+		var user domain.User
 		if err := rows.Scan(
-			&u.ID,
-			&u.Email,
-			&u.Name,
-			&u.CreatedAt,
+			&user.ID,
+			&user.Email,
+			&user.Username,
+			&user.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
-		users = append(users, &u)
+		users = append(users, &user)
 	}
 	return users, rows.Err()
 }

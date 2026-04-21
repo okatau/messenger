@@ -18,15 +18,15 @@ type FriendshipRepository interface {
 	RemoveFriend(ctx context.Context, userID, friendID string) (bool, error)
 }
 
-type fsRepo struct {
+type friendshipRepo struct {
 	pool *pgxpool.Pool
 }
 
 func NewFriendshipRepository(pool *pgxpool.Pool) FriendshipRepository {
-	return &fsRepo{pool: pool}
+	return &friendshipRepo{pool: pool}
 }
 
-func (r *fsRepo) GetFriends(ctx context.Context, userID string) ([]*domain.User, error) {
+func (r *friendshipRepo) GetFriends(ctx context.Context, userID string) ([]*domain.User, error) {
 	query := `
 		SELECT u.id, u.name, u.email, u.created_at
 		FROM friendships f
@@ -51,7 +51,7 @@ func (r *fsRepo) GetFriends(ctx context.Context, userID string) ([]*domain.User,
 
 	for rows.Next() {
 		var f domain.User
-		if err := rows.Scan(&f.ID, &f.Name, &f.Email, &f.CreatedAt); err != nil {
+		if err := rows.Scan(&f.ID, &f.Username, &f.Email, &f.CreatedAt); err != nil {
 			return nil, err
 		}
 		friends = append(friends, &f)
@@ -60,7 +60,7 @@ func (r *fsRepo) GetFriends(ctx context.Context, userID string) ([]*domain.User,
 	return friends, rows.Err()
 }
 
-func (r *fsRepo) AddFriend(ctx context.Context, inviterID, inviteeID string) error {
+func (r *friendshipRepo) AddFriend(ctx context.Context, inviterID, inviteeID string) error {
 	query := `
 		INSERT INTO friendships (requester_id, addressee_id)
 		VALUES ($1, $2)
@@ -77,7 +77,7 @@ func (r *fsRepo) AddFriend(ctx context.Context, inviterID, inviteeID string) err
 	return nil
 }
 
-func (r *fsRepo) AcceptFriend(ctx context.Context, userID, inviterID string) (bool, error) {
+func (r *friendshipRepo) AcceptFriend(ctx context.Context, userID, inviterID string) (bool, error) {
 	query := `
 		UPDATE friendships
 		SET status = 'accepted', updated_at = now()
@@ -91,7 +91,7 @@ func (r *fsRepo) AcceptFriend(ctx context.Context, userID, inviterID string) (bo
 	return tag.RowsAffected() > 0, err
 }
 
-func (r *fsRepo) DeclineFriend(ctx context.Context, userID, inviterID string) (bool, error) {
+func (r *friendshipRepo) DeclineFriend(ctx context.Context, userID, inviterID string) (bool, error) {
 	query := `
 		UPDATE friendships
 		SET status = 'declined', updated_at = now()
@@ -105,7 +105,7 @@ func (r *fsRepo) DeclineFriend(ctx context.Context, userID, inviterID string) (b
 	return tag.RowsAffected() > 0, err
 }
 
-func (r *fsRepo) CancelFriend(ctx context.Context, userID, inviteeID string) (bool, error) {
+func (r *friendshipRepo) CancelFriend(ctx context.Context, userID, inviteeID string) (bool, error) {
 	query := `
 		UPDATE friendships
 		SET status = 'cancelled', updated_at = now()
@@ -119,7 +119,7 @@ func (r *fsRepo) CancelFriend(ctx context.Context, userID, inviteeID string) (bo
 	return tag.RowsAffected() > 0, err
 }
 
-func (r *fsRepo) RemoveFriend(ctx context.Context, userID, friendID string) (bool, error) {
+func (r *friendshipRepo) RemoveFriend(ctx context.Context, userID, friendID string) (bool, error) {
 	query := `
 		DELETE FROM friendships
 		WHERE 

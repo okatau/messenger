@@ -1,13 +1,14 @@
 package handler
 
 import (
-	"chat_service/internal/service"
 	"net/http"
+
+	"chat_service/internal/service"
 
 	"github.com/labstack/echo/v5"
 )
 
-func GetRoomActiveUsers(hub service.Hub) echo.HandlerFunc {
+func GetActiveUsersByRoom(hub service.Hub) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		roomID := c.Param("roomId")
 		if roomID == "" {

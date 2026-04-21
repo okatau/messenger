@@ -1,8 +1,9 @@
 package handler
 
 import (
-	"chat_service/internal/service"
 	"net/http"
+
+	"chat_service/internal/service"
 
 	"github.com/labstack/echo/v5"
 )

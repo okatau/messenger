@@ -1,14 +1,14 @@
 package repository
 
 import (
-	"chat_service/internal/domain"
 	"context"
+
+	"chat_service/internal/domain"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// TODO продумать как удалять комнату если все ее покинули
 type RoomRepository interface {
 	GetAllRooms(ctx context.Context) ([]*domain.Room, error)
 	GetRoomsByUserID(ctx context.Context, userID string) ([]*domain.Room, error)
@@ -16,8 +16,9 @@ type RoomRepository interface {
 	CreateRoom(ctx context.Context, name, userID string) (*domain.Room, error)
 	DeleteRoom(ctx context.Context, roomID string) (*domain.Room, error)
 	AddUser(ctx context.Context, userID, roomID string) error
-	DeleteUser(ctx context.Context, userID, roomID string) error
+	RemoveUser(ctx context.Context, userID, roomID string) error
 	IsMember(ctx context.Context, userID, roomID string) (bool, error)
+	IsEmpty(ctx context.Context, roomID string) (bool, error)
 }
 
 type roomRepo struct {
@@ -107,7 +108,7 @@ func (r *roomRepo) GetUsersByRoomID(ctx context.Context, roomID string) ([]*doma
 
 	for rows.Next() {
 		var user domain.User
-		if err := rows.Scan(&user.ID, &user.Name, &user.CreatedAt); err != nil {
+		if err := rows.Scan(&user.ID, &user.Username, &user.CreatedAt); err != nil {
 			return nil, err
 		}
 		users = append(users, &user)
@@ -165,7 +166,7 @@ func (r *roomRepo) AddUser(ctx context.Context, userID, roomID string) error {
 	return err
 }
 
-func (r *roomRepo) DeleteUser(ctx context.Context, userID, roomID string) error {
+func (r *roomRepo) RemoveUser(ctx context.Context, userID, roomID string) error {
 	query := `
 		DELETE FROM room_members
 		WHERE user_id = $1 AND room_id = $2
@@ -178,7 +179,7 @@ func (r *roomRepo) DeleteUser(ctx context.Context, userID, roomID string) error 
 func (r *roomRepo) IsMember(ctx context.Context, userID, roomID string) (bool, error) {
 	query := `
 		SELECT EXISTS (
-			SELECT *
+			SELECT 1
 			FROM room_members
 			WHERE room_id = $1 AND user_id = $2
 		)	
@@ -187,4 +188,18 @@ func (r *roomRepo) IsMember(ctx context.Context, userID, roomID string) (bool, e
 	var isMember bool
 	err := r.pool.QueryRow(ctx, query, roomID, userID).Scan(&isMember)
 	return isMember, err
+}
+
+func (r *roomRepo) IsEmpty(ctx context.Context, roomID string) (bool, error) {
+	query := `
+		SELECT EXISTS (
+			SELECT 1
+			FROM room_members
+			WHERE room_id = $1
+		)
+	`
+
+	var userExists bool
+	err := r.pool.QueryRow(ctx, query, roomID).Scan(&userExists)
+	return !userExists, err
 }

@@ -1,11 +1,12 @@
 package handler
 
 import (
-	"chat_service/internal/domain"
-	"chat_service/internal/service"
 	"errors"
 	"net/http"
 	"time"
+
+	"chat_service/internal/domain"
+	"chat_service/internal/service"
 
 	"github.com/labstack/echo/v5"
 )
@@ -27,7 +28,7 @@ func GetRoomHistory(hub service.Hub) echo.HandlerFunc {
 			var ts time.Time
 			ts, err = time.Parse(time.RFC3339, rawts)
 			if err != nil {
-				return echo.NewHTTPError(http.StatusBadRequest, "before flag")
+				return echo.NewHTTPError(http.StatusBadRequest, "invalid before flag")
 			}
 			history, err = hub.GetRoomHistory(c.Request().Context(), userID, roomID, ts)
 		}

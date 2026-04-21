@@ -1,12 +1,13 @@
 package service
 
 import (
-	"chat_service/internal/domain"
-	loggerPkg "chat_service/pkg/logger"
 	"context"
 	"log/slog"
 	"sync"
 	"time"
+
+	"chat_service/internal/domain"
+	loggerPkg "chat_service/pkg/logger"
 
 	ws "github.com/gorilla/websocket"
 )
@@ -96,7 +97,7 @@ func (u *user) Listen(ctx context.Context, wg *sync.WaitGroup) {
 }
 
 func (u *user) listenWrite() {
-	const op = "handler.user.listenWrite"
+	const op = "chat.service.user.listenWrite"
 	logger := u.logger.With("op", op)
 
 	for {
@@ -120,7 +121,7 @@ func (u *user) listenRead(ctx context.Context) {
 		u.hub.Disconnect(ctx, u.id)
 	}()
 
-	const op = "handler.user.listenRead"
+	const op = "chat.service.user.listenRead"
 	logger := u.logger.With("op", op)
 
 	for {

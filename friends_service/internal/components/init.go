@@ -31,7 +31,7 @@ type Components struct {
 	Svc          service.Friendship
 	Logger       *slog.Logger
 	TokenManager *token_manager.TokenManager
-	postgres     *pgxpool.Pool
+	Postgres     *pgxpool.Pool
 }
 
 func InitComponents(ctx context.Context, cfg *Config) *Components {
@@ -65,12 +65,12 @@ func InitComponents(ctx context.Context, cfg *Config) *Components {
 		Svc:          svc,
 		Logger:       logger,
 		TokenManager: manager,
-		postgres:     pool,
+		Postgres:     pool,
 	}
 }
 
 func (c *Components) Shutdown(ctx context.Context) {
-	c.postgres.Close()
+	c.Postgres.Close()
 }
 
 func getPostgresDSN(cfg config.PostgresConfig) string {

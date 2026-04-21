@@ -1,12 +1,13 @@
 package handler
 
 import (
-	"auth_service/internal/domain"
-	"auth_service/internal/service"
 	"errors"
 	"net/http"
 	"regexp"
 	"strings"
+
+	"auth_service/internal/domain"
+	"auth_service/internal/service"
 
 	"github.com/labstack/echo/v5"
 )
