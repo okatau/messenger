@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"auth_service/internal/components"
 	"auth_service/internal/handler"
@@ -22,7 +22,7 @@ func main() {
 
 	cfg := config.Load[components.Config]()
 
-	ctxTimeout, cancelTimeout := context.WithTimeout(ctx, time.Second*10)
+	ctxTimeout, cancelTimeout := context.WithTimeout(ctx, cfg.ServerConfig.ShutdownTimeout)
 	defer cancelTimeout()
 	components := components.InitComponents(ctxTimeout, cfg)
 
@@ -35,21 +35,29 @@ func main() {
 	router.POST("/refresh", handler.Refresh(components.Svc))
 	router.POST("/logout", handler.Logout(components.Svc))
 
-	components.Logger.Info(fmt.Sprintf("listening auth service on %d", cfg.Port))
-
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
+	// TODO add TLS
+	serv := &http.Server{
+		Addr:    fmt.Sprintf(":%d", cfg.ServerConfig.Port),
+		Handler: router,
+		// ReadTimeout:  cfg.ServerConfig.ReadTimeout,
+		// WriteTimeout: cfg.ServerConfig.WriteTimeout,
+	}
+
 	go func() {
-		if err := router.Start(fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)); err != nil {
+		components.Logger.Info(fmt.Sprintf("listening auth service on %d", cfg.ServerConfig.Port))
+		if err := serv.ListenAndServe(); err != nil {
 			log.Printf("auth service stopped: %v", err)
 		}
 	}()
 
 	<-quit
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, 10*time.Second)
+	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, cfg.ServerConfig.ShutdownTimeout)
 	defer shutdownCancel()
 
+	serv.Shutdown(shutdownCtx)
 	components.Shutdown(shutdownCtx)
 }

@@ -8,6 +8,7 @@ import (
 	"friends_service/internal/middleware"
 	"friends_service/pkg/config"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -20,8 +21,8 @@ func main() {
 	ctx := context.Background()
 
 	cfg := config.Load[components.Config]()
-	log.Println("friends config", cfg)
-	ctxTimeout, cancelTimeout := context.WithTimeout(ctx, time.Second*10)
+
+	ctxTimeout, cancelTimeout := context.WithTimeout(ctx, cfg.ServerConfig.ShutdownTimeout)
 	defer cancelTimeout()
 
 	components := components.InitComponents(ctxTimeout, cfg)
@@ -51,17 +52,22 @@ func main() {
 		cancel()
 	}()
 
-	sc := echo.StartConfig{
-		Address:         fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
-		GracefulTimeout: 10 * time.Second,
+	// TODO add TLS
+	serv := &http.Server{
+		Addr:    fmt.Sprintf(":%d", cfg.ServerConfig.Port),
+		Handler: router,
+		// ReadTimeout:  cfg.ServerConfig.ReadTimeout,
+		// WriteTimeout: cfg.ServerConfig.WriteTimeout,
 	}
 
-	if err := sc.Start(ctx, router); err != nil {
+	if err := serv.ListenAndServe(); err != nil {
+		components.Logger.Info(fmt.Sprintf("listening friends service on %d", cfg.ServerConfig.Port))
 		log.Printf("server stopped: %v", err)
 	}
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer shutdownCancel()
 
+	serv.Shutdown(shutdownCtx)
 	components.Shutdown(shutdownCtx)
 }

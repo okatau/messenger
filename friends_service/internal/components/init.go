@@ -11,20 +11,22 @@ import (
 	"friends_service/pkg/token_manager"
 	"log"
 	"log/slog"
+	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Config struct {
-	Env      string                `env:"ENV" env-default:"local"`
-	Host     string                `env:"SERVER_HOST" env-default:"0.0.0.0"`
-	Port     int                   `env:"SERVER_FRIENDS_PORT" env-default:"8083"`
-	Postgres config.PostgresConfig `env-prefix:"PG_"`
-	Auth     AuthConfig            `env-prefix:"AUTH_"`
+	Env          string                `yaml:"env" env-default:"local"`
+	Postgres     config.PostgresConfig `env-prefix:"PG_"`
+	Auth         AuthConfig
+	ServerConfig config.HTTPConfig `yaml:"http"`
 }
 
 type AuthConfig struct {
-	PublicKeyPEMBase64 string `env:"PUBLIC_PEM_BASE64" env-default:""`
+	AccessTokenTTL     time.Duration `yaml:"access_token_ttl" env-default:"15m"`
+	PublicKeyPEMBase64 string        `env:"AUTH_PUBLIC_PEM_BASE64" env-required:"true"`
 }
 
 type Components struct {
@@ -46,13 +48,12 @@ func InitComponents(ctx context.Context, cfg *Config) *Components {
 	}
 
 	logger := logger.InitLogger(cfg.Env)
-
-	pemBytes, err := base64.StdEncoding.DecodeString(cfg.Auth.PublicKeyPEMBase64)
+	pemBytes, err := base64.StdEncoding.DecodeString(strings.ReplaceAll(cfg.Auth.PublicKeyPEMBase64, "\n", ""))
 	if err != nil {
-		log.Fatal("error decoding public pem")
+		log.Fatalf("error decoding public pem %v", err)
 	}
 
-	manager, err := token_manager.NewTokenManager(pemBytes, []byte{}, logger)
+	manager, err := token_manager.NewTokenManager(pemBytes, []byte{}, cfg.Auth.AccessTokenTTL, logger)
 	if err != nil {
 		log.Fatal(err)
 	}

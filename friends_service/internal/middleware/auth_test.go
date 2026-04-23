@@ -11,12 +11,15 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var accessTokenTTL = 15 * time.Minute
 
 func newContext(method, target, body string) (*echo.Echo, *echo.Context, *httptest.ResponseRecorder) {
 	e := echo.New()
@@ -45,7 +48,7 @@ func setupTokenManager(t *testing.T) *token_manager.TokenManager {
 	require.NoError(t, err)
 	pubPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubDER})
 
-	manager, err := token_manager.NewTokenManager(pubPEM, privPEM, slog.Default())
+	manager, err := token_manager.NewTokenManager(pubPEM, privPEM, accessTokenTTL, slog.Default())
 	require.NoError(t, err)
 	return manager
 }

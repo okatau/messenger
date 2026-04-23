@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"time"
 
 	"auth_service/internal/repository"
 	"auth_service/internal/service"
@@ -17,16 +18,17 @@ import (
 )
 
 type Config struct {
-	Env      string                `env:"ENV" env-default:"local"`
-	Host     string                `env:"SERVER_HOST" env-default:"0.0.0.0"`
-	Port     int                   `env:"SERVER_AUTH_PORT" env-default:"8081"`
-	Postgres config.PostgresConfig `env-prefix:"PG_"`
-	Auth     AuthConfig            `env-prefix:"AUTH_"`
+	Env          string                `env:"ENV" env-default:"local"`
+	Postgres     config.PostgresConfig `env-prefix:"PG_"`
+	Auth         AuthConfig
+	ServerConfig config.HTTPConfig `yaml:"http"`
 }
 
 type AuthConfig struct {
-	PublicKeyPEMBase64  string `env:"PUBLIC_PEM_BASE64" env-default:""`
-	PrivateKeyPEMBase64 string `env:"PRIVATE_PEM_BASE64" env-default:""`
+	AccessTokenTTL      time.Duration `yaml:"access_token_ttl" env-default:"15m"`
+	RefreshTokenTTL     time.Duration `yaml:"refresh_token_ttl" env-default:"720h"` // 30 days
+	PublicKeyPEMBase64  string        `env:"AUTH_PUBLIC_PEM_BASE64" env-required:"true"`
+	PrivateKeyPEMBase64 string        `env:"AUTH_PRIVATE_PEM_BASE64" env-required:"true"`
 }
 
 type Components struct {
@@ -58,14 +60,14 @@ func InitComponents(ctx context.Context, cfg *Config) *Components {
 		log.Fatal("error decoding private pem")
 	}
 
-	manager, err := token_manager.NewTokenManager(publicPemBytes, privatePemBytes, logger)
+	manager, err := token_manager.NewTokenManager(publicPemBytes, privatePemBytes, cfg.Auth.AccessTokenTTL, logger)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	authRepo := repository.NewUserRepository(pool)
 	tokenRepo := repository.NewSessionRepository(pool)
-	svc := service.NewAuthService(authRepo, tokenRepo, manager, logger)
+	svc := service.NewAuthService(authRepo, tokenRepo, manager, logger, cfg.Auth.RefreshTokenTTL)
 
 	return &Components{
 		Postgres:     pool,

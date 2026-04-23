@@ -15,4 +15,4 @@ WORKDIR /chat-app
 
 COPY --from=builder /chat-app/bin/server ./server
 EXPOSE 8082
-CMD ["./server"]
+CMD ["./server", "-env", "/etc/chat_service/.env.local", "-config", "/etc/chat_service/local.yaml"]

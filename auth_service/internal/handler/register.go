@@ -11,6 +11,11 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
+const (
+	passwordMaxLen = 72
+	passwordMinLen = 5
+)
+
 func Register(auth service.Auth) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		var req struct {
@@ -26,7 +31,7 @@ func Register(auth service.Auth) echo.HandlerFunc {
 		if !emailRegex.MatchString(req.Email) {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid email")
 		}
-		if req.Password == "" || len([]byte(req.Password)) > 72 || len(req.Password) < 5 {
+		if req.Password == "" || len([]byte(req.Password)) > passwordMaxLen || len([]byte(req.Password)) < passwordMinLen {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid password")
 		}
 		if req.Username == "" {

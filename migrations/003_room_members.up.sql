@@ -4,5 +4,5 @@ CREATE TABLE IF NOT EXISTS room_members (
     PRIMARY KEY (user_id, room_id)
 );
 
-CREATE INDEX idx_room_members_user_id ON room_members(user_id);                                                                                                                                                                                             
-CREATE INDEX idx_room_members_room_id ON room_members(room_id);                                                                                                                                                                                   
+CREATE INDEX IF NOT EXISTS idx_room_members_user_id ON room_members(user_id);                                                                                                                                                                                             
+CREATE INDEX IF NOT EXISTS idx_room_members_room_id ON room_members(room_id);                                                                                                                                                                                   

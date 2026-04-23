@@ -1,0 +1,10 @@
+env: local
+
+http:
+  port: 8083
+  read_timeout: 10s
+  write_timeout: 10s
+  shutdown_timeout: 10s
+
+auth:
+  access_token_ttl: 30m

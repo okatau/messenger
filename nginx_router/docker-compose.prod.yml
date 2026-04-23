@@ -1,0 +1,128 @@
+services:
+
+  nginx-prod:
+    container_name: nginx-prod
+    restart: always
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.prod.conf:/etc/nginx/nginx.conf.template:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+      - /dev/shm:/dev/shm
+    command: >
+      /bin/sh -c "envsubst '$$DOMAIN' < /etc/nginx/nginx.conf.template
+      > /etc/nginx/nginx.conf && nginx -g 'daemon off;'"
+    environment:
+      DOMAIN: "${DOMAIN}"
+    depends_on:
+      - frontend-prod
+      - auth-prod
+      - chat-prod
+      - friends-prod
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: >
+      /bin/sh -c "trap exit TERM;
+      while :; do certbot renew --quiet; sleep 12h & wait $${!}; done"
+
+  frontend-prod:
+    container_name: frontend-prod
+    restart: always
+    image: "${REGISTRY}/frontend:latest"
+    expose:
+      - "3000"
+    environment:
+      API_INTERNAL_URL: "http://nginx-prod:8080"
+
+  pg-prod:
+    container_name: pg-prod
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: "messenger"
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "${PG_PASSWORD}"
+    volumes:
+      - ".data/pg-prod:/var/lib/postgresql/data"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d messenger"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    image: postgres:16-alpine
+    depends_on:
+      pg-prod:
+        condition: service_healthy
+    volumes:
+      - ../migrations:/migrations
+    environment:
+      PGPASSWORD: "${PG_PASSWORD}"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        for f in $(ls /migrations/*.up.sql | sort); do
+          echo "Applying $$f"
+          psql -h pg-prod -U postgres -d messenger -f $$f
+        done
+
+  redis-prod:
+    container_name: redis-prod
+    image: redis:8.6-alpine
+    restart: always
+    command: redis-server --requirepass "${REDIS_PASSWORD}"
+    volumes:
+      - ".data/redis-prod:/var/lib/redis/data"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  auth-prod:
+    container_name: auth-prod
+    restart: always
+    image: "${REGISTRY}/auth:latest"
+    command: ["./server", "-env", "/etc/auth_service/.env.prod", "-config", "/etc/auth_service/prod.yaml"]
+    expose:
+      - "8081"
+    volumes:
+      - ../config/auth_service:/etc/auth_service
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  chat-prod:
+    container_name: chat-prod
+    restart: always
+    image: "${REGISTRY}/chat:latest"
+    command: ["./server", "-env", "/etc/chat_service/.env.prod", "-config", "/etc/chat_service/prod.yaml"]
+    expose:
+      - "8082"
+    volumes:
+      - ../config/chat_service:/etc/chat_service
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis-prod:
+        condition: service_healthy
+
+  friends-prod:
+    container_name: friends-prod
+    restart: always
+    image: "${REGISTRY}/friends:latest"
+    command: ["./server", "-env", "/etc/friends_service/.env.prod", "-config", "/etc/friends_service/prod.yaml"]
+    expose:
+      - "8083"
+    volumes:
+      - ../config/friends_service:/etc/friends_service
+    depends_on:
+      migrate:
+        condition: service_completed_successfully

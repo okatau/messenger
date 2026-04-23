@@ -15,4 +15,4 @@ WORKDIR /friends-app
 
 COPY --from=builder /friends-app/bin/server ./server
 EXPOSE 8083
-CMD ["./server"]
+CMD ["./server", "-env", "/etc/friends_service/.env.prod", "-config", "/etc/friends_service/prod.yaml"]

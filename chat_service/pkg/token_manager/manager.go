@@ -14,15 +14,18 @@ import (
 )
 
 type TokenManager struct {
-	publicKey  *rsa.PublicKey
-	privateKey *rsa.PrivateKey
-	verifyOnly bool
-	logger     *slog.Logger
+	publicKey      *rsa.PublicKey
+	privateKey     *rsa.PrivateKey
+	accessTokenTTL time.Duration
+	verifyOnly     bool
+	logger         *slog.Logger
 }
+
+const refreshTokenSize = 32
 
 var ErrVerifyOnly = errors.New("manager only verifies tokens")
 
-func NewTokenManager(publicPem, privatePem []byte, logger *slog.Logger) (*TokenManager, error) {
+func NewTokenManager(publicPem, privatePem []byte, accessTokenTTL time.Duration, logger *slog.Logger) (*TokenManager, error) {
 	var privateKey *rsa.PrivateKey
 	verifyOnly := false
 
@@ -40,7 +43,13 @@ func NewTokenManager(publicPem, privatePem []byte, logger *slog.Logger) (*TokenM
 	if err != nil {
 		return nil, err
 	}
-	return &TokenManager{publicKey: publicKey, privateKey: privateKey, verifyOnly: verifyOnly, logger: logger}, nil
+	return &TokenManager{
+		publicKey:      publicKey,
+		privateKey:     privateKey,
+		verifyOnly:     verifyOnly,
+		logger:         logger,
+		accessTokenTTL: accessTokenTTL,
+	}, nil
 }
 
 func (m *TokenManager) GenerateAccessToken(userID string) (string, error) {
@@ -49,7 +58,7 @@ func (m *TokenManager) GenerateAccessToken(userID string) (string, error) {
 	}
 	claims := jwt.RegisteredClaims{
 		Subject:   userID,
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(m.accessTokenTTL)),
 		IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
 	}
 
@@ -58,7 +67,7 @@ func (m *TokenManager) GenerateAccessToken(userID string) (string, error) {
 }
 
 func (m *TokenManager) GenerateRefreshToken() (string, error) {
-	b := make([]byte, 32)
+	b := make([]byte, refreshTokenSize)
 	if _, err := rand.Read(b); err != nil {
 		return "", err
 	}

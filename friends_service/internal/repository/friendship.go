@@ -9,6 +9,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+const pgUniqueViolation = "23505"
+
 type FriendshipRepository interface {
 	GetFriends(ctx context.Context, userID string) ([]*domain.User, error)
 	AddFriend(ctx context.Context, inviterID, inviteeID string) error
@@ -69,7 +71,7 @@ func (r *friendshipRepo) AddFriend(ctx context.Context, inviterID, inviteeID str
 	_, err := r.pool.Exec(ctx, query, inviterID, inviteeID)
 	if err != nil {
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" { // unique_violation
+		if errors.As(err, &pgErr) && pgErr.Code == pgUniqueViolation { // unique_violation
 			return domain.ErrFriendReqAlreadyExists
 		}
 		return err

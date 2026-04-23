@@ -1,13 +1,14 @@
 services:
+
   nginx-local:
-    containter_name: nginx-local
-    restrart: always
+    container_name: nginx-local
+    restart: always
     image: nginx:alpine
     user: "root"
     ports:
-      - "80:80"
+      - "8080:80"
     volumes:
-      - ./nginx-local.conf:/etc/nginx/nginx.conf
+      - ./nginx.local.conf:/etc/nginx/nginx.conf
     depends_on:
       - nodejs-local
       - auth-local
@@ -20,14 +21,17 @@ services:
     restart: always
     build:
       context: ../frontend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
       args: {}
     volumes:
       - ../frontend:/app
       - /app/node_modules
+    ports:
+      - "3000:3000"
     environment:
       NEXT_PUBLIC_API_URL: "http://localhost:8080"
       NEXT_PUBLIC_WEBSOCKET_URL: "ws://localhost:8080/api/v1/rooms"
+      API_INTERNAL_URL: "http://nginx-local"
 
   pg-local:
     container_name: pg-local
@@ -41,12 +45,30 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ".data/pg-local:/var/lib/postgresql/data
+      - ".data/pg-local:/var/lib/postgresql/data"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d messenger"]
       interval: 5s
       timeout: 5s
       retries: 10
+  
+  # TODO move to makefile?
+  migrate:
+    image: postgres:16-alpine
+    depends_on:
+      pg-local:
+        condition: service_healthy
+    volumes:
+      - ../migrations:/migrations
+    environment: 
+      PGPASSWORD: postgres
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        for f in $(ls /migrations/*.up.sql | sort); do
+          echo "Applying $$f"                                                                                                                                                                                                                         
+          psql -h pg-local -U postgres -d messenger -f $$f
+        done    
   
   redis-local:
     container_name: redis-local
@@ -65,15 +87,42 @@ services:
   
   auth-local:
     container_name: auth-local
+    restart: always
     build:
       context: ../auth_service
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.local
     expose:
       - "8081"
-    environment:
-      CONFIG_PATH: /chat-app/chats.env
     volumes:
-      - ./chats.env:/chat-app/chats.env:ro
+      - ../config/auth_service:/etc/auth_service
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+  
+  chat-local:
+    container_name: chat-local
+    restart: always
+    build:
+      context: ../chat_service
+      dockerfile: Dockerfile.local
+    expose:
+      - "8082"
+    volumes:
+      - ../config/chat_service:/etc/chat_service
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+  
+  friends-local:
+    container_name: friends-local
+    restart: always
+    build:
+      context: ../friends_service
+      dockerfile: Dockerfile.local
+    expose:
+      - "8083"
+    volumes:
+      - ../config/friends_service:/etc/friends_service
     depends_on:
       migrate:
         condition: service_completed_successfully

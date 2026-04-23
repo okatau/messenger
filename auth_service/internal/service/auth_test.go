@@ -20,6 +20,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+var refreshTokenTTL = 30 * 24 * time.Hour
+var accesttTokenTTL = 15 * time.Minute
+
 type sessionRepoMock struct{ mock.Mock }
 
 func (sr *sessionRepoMock) GetSessionByToken(ctx context.Context, refreshToken string) (*domain.Session, error) {
@@ -75,7 +78,7 @@ func setupTokenManager(t *testing.T) *token_manager.TokenManager {
 
 	pubPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubDER})
 
-	manager, err := token_manager.NewTokenManager(pubPEM, privPEM, slog.Default())
+	manager, err := token_manager.NewTokenManager(pubPEM, privPEM, accesttTokenTTL, slog.Default())
 	require.NoError(t, err)
 	return manager
 }
@@ -89,6 +92,7 @@ func setupAuthSvc(t *testing.T, uMock *userRepoMock, sMock *sessionRepoMock) Aut
 		sMock,
 		manager,
 		slog.Default(),
+		refreshTokenTTL,
 	)
 
 	return svc

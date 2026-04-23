@@ -27,10 +27,10 @@ type MessageRepository interface {
 
 type messageRepo struct {
 	pool *pgxpool.Pool
-	rdb  *redis.Client
+	rdb  redis.UniversalClient
 }
 
-func NewMessageRepository(pool *pgxpool.Pool, rdb *redis.Client) MessageRepository {
+func NewMessageRepository(pool *pgxpool.Pool, rdb redis.UniversalClient) MessageRepository {
 	return &messageRepo{
 		pool: pool,
 		rdb:  rdb,

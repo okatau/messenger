@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useContext } from 'react'
 import { useRouter } from 'next/router'
-import { UserInfo } from '../../../modules/auth_provider'
+import { AuthContext, UserInfo } from '../../../modules/auth_provider'
 
 const Index = () => {
   const [email, setEmail] = useState('')
@@ -8,6 +8,7 @@ const Index = () => {
   const [error, setError] = useState<string | null>(null);
 
   const router = useRouter()
+  const { setUser, setAuthenticated, setIsReady } = useContext(AuthContext)
 
   const submitHandler = async (e: React.SyntheticEvent) => {
     e.preventDefault()
@@ -31,7 +32,10 @@ const Index = () => {
         console.log(user)
 
         localStorage.setItem('user_info', JSON.stringify(user))
-        window.location.href = '/'
+        setUser(user)
+        setAuthenticated(true)
+        setIsReady(true)
+        router.push('/')
         return
       } else {
       const errorMessage = data.message

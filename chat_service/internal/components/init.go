@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"time"
 
 	"chat_service/internal/repository"
 	"chat_service/internal/service"
@@ -18,21 +19,22 @@ import (
 )
 
 type Config struct {
-	Env      string                `env:"ENV" env-default:"local"`
-	Host     string                `env:"SERVER_HOST" env-default:"0.0.0.0"`
-	Port     int                   `env:"SERVER_CHAT_PORT" env-default:"8082"`
-	Postgres config.PostgresConfig `env-prefix:"PG_"`
-	Redis    config.RedisConfig    `env-prefix:"REDIS_"`
-	Auth     AuthConfig            `env-prefix:"AUTH_"`
+	Env          string                `yaml:"env" env-default:"local"`
+	Postgres     config.PostgresConfig `env-prefix:"PG_"`
+	Redis        config.RedisConfig
+	Auth         AuthConfig
+	ServerConfig config.HTTPConfig `yaml:"http"`
 }
 
 type AuthConfig struct {
-	PublicKeyPEMBase64 string `env:"PUBLIC_PEM_BASE64" env-default:""`
+	AccessTokenTTL time.Duration `yaml:"access_token_ttl" env-default:"15m"`
+	// RefreshTokenTTL    time.Duration `yaml:"refresh_token_ttl" env-default:"720h"` // 30 days
+	PublicKeyPEMBase64 string `env:"AUTH_PUBLIC_PEM_BASE64" env-required:"true"`
 }
 
 type Components struct {
 	Postgres     *pgxpool.Pool
-	Redis        *redis.Client
+	Redis        redis.UniversalClient
 	Hub          service.Hub
 	TokenManager *token_manager.TokenManager
 	Logger       *slog.Logger
@@ -49,10 +51,10 @@ func InitComponents(ctx context.Context, hubCtx context.Context, cfg *Config) *C
 		log.Fatal(err)
 	}
 
-	rdb := redis.NewClient(&redis.Options{
-		Addr: cfg.Redis.Addr,
+	rdb := redis.NewUniversalClient(&redis.UniversalOptions{
+		Addrs:    cfg.Redis.Addrs,
+		Password: cfg.Redis.Password,
 	})
-
 	if err = rdb.Ping(ctx).Err(); err != nil {
 		log.Fatalf("redis ping failed: %v", err)
 	}
@@ -64,7 +66,7 @@ func InitComponents(ctx context.Context, hubCtx context.Context, cfg *Config) *C
 		log.Fatal("error decoding public pem")
 	}
 
-	manager, err := token_manager.NewTokenManager(pemBytes, []byte{}, logger)
+	manager, err := token_manager.NewTokenManager(pemBytes, []byte{}, cfg.Auth.AccessTokenTTL, logger)
 	if err != nil {
 		log.Fatal(err)
 	}

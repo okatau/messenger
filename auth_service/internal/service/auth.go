@@ -13,10 +13,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const (
-	TokenLifetime = 30 * 24 * time.Hour
-)
-
 type Auth interface {
 	Register(ctx context.Context, name, email, password string) (*domain.User, error)
 	Login(ctx context.Context, email, password string) (*domain.AuthSession, error)
@@ -25,10 +21,11 @@ type Auth interface {
 }
 
 type auth struct {
-	userRepo     repository.UserRepository
-	sessionRepo  repository.SessionRepository
-	tokenManager *token_manager.TokenManager
-	logger       *slog.Logger
+	userRepo        repository.UserRepository
+	sessionRepo     repository.SessionRepository
+	tokenManager    *token_manager.TokenManager
+	logger          *slog.Logger
+	refreshTokenTTL time.Duration
 }
 
 func NewAuthService(
@@ -36,12 +33,14 @@ func NewAuthService(
 	sessionRepo repository.SessionRepository,
 	tokenManager *token_manager.TokenManager,
 	logger *slog.Logger,
+	refreshTokenTTL time.Duration,
 ) Auth {
 	return &auth{
-		userRepo:     userRepo,
-		sessionRepo:  sessionRepo,
-		tokenManager: tokenManager,
-		logger:       logger,
+		userRepo:        userRepo,
+		sessionRepo:     sessionRepo,
+		tokenManager:    tokenManager,
+		logger:          logger,
+		refreshTokenTTL: refreshTokenTTL,
 	}
 }
 
@@ -175,7 +174,7 @@ func (a *auth) generateAndSaveTokens(ctx context.Context, userID, username strin
 		return nil, err
 	}
 
-	expiresAt := time.Now().Add(TokenLifetime)
+	expiresAt := time.Now().Add(a.refreshTokenTTL)
 	if err := a.sessionRepo.CreateSession(ctx, userID, username, refreshToken, expiresAt); err != nil {
 		return nil, err
 	}

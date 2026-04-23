@@ -1,0 +1,14 @@
+env: prod
+
+http:
+  port: 8082
+  read_timeout: 10s
+  write_timeout: 10s
+  shutdown_timeout: 10s
+
+auth:
+  access_token_ttl: 30m
+
+redis:
+  addrs:
+    - redis-prod:6379

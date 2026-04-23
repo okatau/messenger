@@ -2,6 +2,8 @@
 
 Бэкенд мессенджера на Go, реализованный как набор микросервисов. Сервисы общаются через HTTP REST API, входящий трафик маршрутизируется через Nginx.
 
+Потестить сервис можно тут [messenger-pet.mooo.com](https://messenger-pet.mooo.com/)
+
 ## Архитектура
 
 ```
@@ -69,41 +71,129 @@ Nginx (:8080)
 
 ## Запуск
 
-### Требования
+### Локально
 
-- Docker и Docker Compose
+**Требования:** Docker, Docker Compose
 
-### Подготовка конфигурации
+Конфигурация для локального окружения уже готова — файлы `config/*/local.yaml` и `config/*/.env.local` лежат в репозитории с дефолтными значениями (PostgreSQL: `postgres/postgres`, Redis: `redis`).
 
-```bash
-cd nginx_router
-cp chats.env.example chats.env
-```
-
-Заполните в `chats.env` значения для JWT-ключей:
-
-```env
-AUTH_PUBLIC_PEM_BASE64=<base64 публичного RSA-ключа>
-AUTH_PRIVATE_PEM_BASE64=<base64 приватного RSA-ключа>
-```
-
-Сгенерировать ключи можно так:
+Если хотите использовать собственную пару RSA-ключей вместо тестовой:
 
 ```bash
 openssl genrsa -out private.pem 2048
 openssl rsa -in private.pem -pubout -out public.pem
+
 AUTH_PRIVATE_PEM_BASE64=$(base64 -i private.pem)
 AUTH_PUBLIC_PEM_BASE64=$(base64 -i public.pem)
 ```
 
-### Запуск
+Вставьте полученные значения в `config/auth_service/.env.local`.
+
+Запуск:
 
 ```bash
 cd nginx_router
-docker compose up --build
+docker compose -f docker-compose.local.yml up --build
 ```
 
-После запуска API доступно на `http://localhost:8080`.
+После старта:
+- Фронтенд + API: `http://localhost:8080`
+- PostgreSQL: `localhost:5432`
+- Redis: `localhost:6379`
+
+Миграции применяются автоматически при первом запуске.
+
+---
+
+### На удалённом сервере
+
+**Требования:** Docker, Docker Compose, публичный домен, container registry (например [GHCR](https://ghcr.io))
+
+#### 1. Подготовка конфигурации
+
+Скопируйте примеры конфигов и заполните их:
+
+```bash
+# Env-файлы для сервисов
+cp config/auth_service/.env.prod.example    config/auth_service/.env.prod
+cp config/chat_service/.env.prod.example    config/chat_service/.env.prod
+cp config/friends_service/.env.prod.example config/friends_service/.env.prod
+
+# YAML-конфиги для сервисов (менять обычно не нужно)
+cp config/auth_service/prod.yaml.example    config/auth_service/prod.yaml
+cp config/chat_service/prod.yaml.example    config/chat_service/prod.yaml
+cp config/friends_service/prod.yaml.example config/friends_service/prod.yaml
+
+# Env-файл для docker-compose и nginx
+cp nginx_router/.env.prod.example nginx_router/.env.prod
+```
+
+Сгенерируйте RSA-ключи и запишите их в env-файлы сервисов:
+
+```bash
+openssl genrsa -out private.pem 2048
+openssl rsa -in private.pem -pubout -out public.pem
+
+AUTH_PRIVATE_PEM_BASE64=$(base64 -i private.pem)
+AUTH_PUBLIC_PEM_BASE64=$(base64 -i public.pem)
+```
+
+Вставьте значения `AUTH_PUBLIC_PEM_BASE64` и `AUTH_PRIVATE_PEM_BASE64` в:
+- `config/auth_service/.env.prod`
+- `config/chat_service/.env.prod`
+- `config/friends_service/.env.prod`
+
+Заполните `nginx_router/.env.prod`:
+
+```env
+DOMAIN=yourdomain.com
+CERTBOT_EMAIL=you@example.com
+REGISTRY=ghcr.io/your-username/messenger
+
+PG_PASSWORD=your_secure_pg_password
+REDIS_PASSWORD=your_secure_redis_password
+```
+
+#### 2. Сборка и публикация образов
+
+Выполните на машине разработчика (или в CI):
+
+```bash
+REGISTRY=ghcr.io/your-username/messenger
+
+docker build -t $REGISTRY/auth:latest    -f auth_service/Dockerfile.prod    auth_service/
+docker build -t $REGISTRY/chat:latest    -f chat_service/Dockerfile.prod    chat_service/
+docker build -t $REGISTRY/friends:latest -f friends_service/Dockerfile.prod friends_service/
+docker build -t $REGISTRY/frontend:latest frontend/
+
+docker push $REGISTRY/auth:latest
+docker push $REGISTRY/chat:latest
+docker push $REGISTRY/friends:latest
+docker push $REGISTRY/frontend:latest
+```
+
+#### 3. Получение SSL-сертификата (Let's Encrypt)
+
+Выполните один раз на сервере:
+
+```bash
+cd nginx_router
+bash init-certbot.sh
+```
+
+Скрипт создаёт временный self-signed сертификат, поднимает nginx, получает настоящий сертификат от Let's Encrypt и перезагружает nginx.
+
+#### 4. Запуск всего стека
+
+```bash
+cd nginx_router
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+```
+
+После старта:
+- Приложение доступно на `https://yourdomain.com`
+- Сертификат обновляется автоматически через контейнер `certbot`
+- Миграции применяются автоматически при первом запуске
 
 ## Структура проекта
 

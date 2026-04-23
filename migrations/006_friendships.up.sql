@@ -10,6 +10,6 @@ CREATE TABLE IF NOT EXISTS friendships (
     CHECK(status IN ('pending', 'accepted', 'cancelled', 'declined'))
 );
 
-CREATE INDEX idx_friendships_addressee ON friendships(addressee_id);
-CREATE INDEX idx_friendships_requester ON friendships(requester_id);
-CREATE UNIQUE INDEX idx_friendships_unique_pair ON friendships(LEAST(requester_id::text, addressee_id::text), GREATEST(requester_id::text, addressee_id::text));                                                                                                                                 
+CREATE INDEX IF NOT EXISTS idx_friendships_addressee ON friendships(addressee_id);
+CREATE INDEX IF NOT EXISTS idx_friendships_requester ON friendships(requester_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_friendships_unique_pair ON friendships(LEAST(requester_id::text, addressee_id::text), GREATEST(requester_id::text, addressee_id::text));                                                                                                                                 

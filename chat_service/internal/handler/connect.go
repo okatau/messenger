@@ -14,6 +14,8 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
+const wsCodeUnauthorized = 4001
+
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true // TODO: проверять origin в проде
@@ -48,7 +50,7 @@ func Connect(hub service.Hub, manager *token_manager.TokenManager, ctx context.C
 		claims, err := manager.VerifyAccessToken(handshake.Token)
 		if err != nil {
 			conn.WriteMessage(websocket.CloseMessage,
-				websocket.FormatCloseMessage(4001, "unauthorized"))
+				websocket.FormatCloseMessage(wsCodeUnauthorized, "unauthorized"))
 			conn.Close()
 			return nil
 		}

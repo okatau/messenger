@@ -1,18 +1,17 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"log"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
-
 	"chat_service/internal/components"
 	"chat_service/internal/handler"
 	"chat_service/internal/middleware"
 	"chat_service/pkg/config"
+	"context"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/labstack/echo/v5"
 )
@@ -23,10 +22,10 @@ func main() {
 	hubCtx, hubCancel := context.WithCancel(ctx)
 	defer hubCancel()
 
-	ctxTimeout, cancelTimeout := context.WithTimeout(ctx, 10*time.Second)
-	defer cancelTimeout()
-
 	cfg := config.Load[components.Config]()
+
+	ctxTimeout, cancelTimeout := context.WithTimeout(ctx, cfg.ServerConfig.ShutdownTimeout)
+	defer cancelTimeout()
 
 	components := components.InitComponents(ctxTimeout, hubCtx, cfg)
 
@@ -47,16 +46,25 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
+	// TODO add TLS
+	serv := &http.Server{
+		Addr:    fmt.Sprintf(":%d", cfg.ServerConfig.Port),
+		Handler: router,
+		// ReadTimeout:  cfg.ServerConfig.ReadTimeout,
+		// WriteTimeout: cfg.ServerConfig.WriteTimeout,
+	}
+
 	go func() {
-		if err := router.Start(fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)); err != nil {
+		components.Logger.Info(fmt.Sprintf("listening chat service on %d", cfg.ServerConfig.Port))
+		if err := serv.ListenAndServe(); err != nil {
 			log.Printf("server stopped: %v", err)
 		}
 	}()
 
 	<-quit
-
-	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, 10*time.Second)
+	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, cfg.ServerConfig.ShutdownTimeout)
 	defer shutdownCancel()
 
+	serv.Shutdown(shutdownCtx)
 	components.Shutdown(shutdownCtx)
 }

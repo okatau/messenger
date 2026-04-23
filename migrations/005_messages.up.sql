@@ -6,4 +6,4 @@ CREATE TABLE IF NOT EXISTS messages (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_messages_room_created ON messages(room_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_room_created ON messages(room_id, created_at DESC);

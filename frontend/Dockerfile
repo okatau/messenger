@@ -1,17 +1,14 @@
-FROM node:21-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-ARG NEXT_PUBLIC_API_URL
-ARG NEXT_PUBLIC_WEBSOCKET_URL
-RUN npm run build
+# from repo
+FROM node:21-alpine
 
-FROM node:21-alpine AS runner
 WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+
+COPY package*.json ./
+
+RUN npm install
+RUN npm install -g nodemon
+COPY . .
+
 EXPOSE 3000
-CMD ["node", "server.js"]
+
+ENTRYPOINT ["npm", "run", "dev"]

@@ -28,7 +28,7 @@ func Login(auth service.Auth) echo.HandlerFunc {
 		if !emailRegex.MatchString(req.Email) {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid email")
 		}
-		if req.Password == "" || len([]byte(req.Password)) > 72 || len(req.Password) < 5 {
+		if req.Password == "" || len([]byte(req.Password)) > passwordMaxLen || len([]byte(req.Password)) < passwordMinLen {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid password")
 		}
 

@@ -1,4 +1,4 @@
-import { useState, createContext, useEffect } from 'react'
+import { useState, createContext, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 
 export type UserInfo = {
@@ -14,12 +14,14 @@ export const AuthContext = createContext<{
   user: UserInfo
   setUser: (user: UserInfo) => void
   isReady: boolean
+  setIsReady: (ready: boolean) => void
 }>({
   authenticated: false,
   setAuthenticated: () => {},
   user: { username: '', id: '', refresh_token:'', access_token:'' },
   setUser: () => {},
   isReady: false,
+  setIsReady: () => {},
 })
 
 const AuthContextProvider = ({ children }: { children: React.ReactNode }) => {
@@ -28,8 +30,12 @@ const AuthContextProvider = ({ children }: { children: React.ReactNode }) => {
   const [isReady, setIsReady] = useState(false)
 
   const router = useRouter()
+  const hasRun = useRef(false)
 
   useEffect(() => {
+    if (hasRun.current) return
+    hasRun.current = true
+
     const userInfo = localStorage.getItem('user_info')
 
     if (!userInfo) {
@@ -69,7 +75,7 @@ const AuthContextProvider = ({ children }: { children: React.ReactNode }) => {
           router.push('/user/login')
         })
     }
-  }, [authenticated])
+  }, [])
 
   return (
     <AuthContext.Provider
@@ -79,6 +85,7 @@ const AuthContextProvider = ({ children }: { children: React.ReactNode }) => {
         user: user,
         setUser: setUser,
         isReady: isReady,
+        setIsReady: setIsReady,
       }}
     >
       {children}

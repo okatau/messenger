@@ -18,6 +18,8 @@ import (
 
 const aliceID = "00000000-0000-0000-0000-0000000a11c3"
 
+var accessTokenTTL = 15 * time.Minute
+
 var (
 	manager *TokenManager
 )
@@ -47,7 +49,7 @@ func TestMain(m *testing.M) {
 		log.Fatalf("error generate rsa key pair %v", err)
 	}
 
-	manager, err = NewTokenManager(publicPEM, privatePEM, slog.Default())
+	manager, err = NewTokenManager(publicPEM, privatePEM, accessTokenTTL, slog.Default())
 	if err != nil {
 		log.Fatalf("error Create token manager %v", err)
 	}
@@ -75,7 +77,7 @@ func TestNewTokenManager_Success(t *testing.T) {
 	pubKey, privKey, err := generateRSAKeyPair()
 	require.NoError(t, err)
 
-	m, err := NewTokenManager(pubKey, privKey, slog.Default())
+	m, err := NewTokenManager(pubKey, privKey, accessTokenTTL, slog.Default())
 	require.NoError(t, err)
 	assert.False(t, m.verifyOnly)
 }
@@ -84,7 +86,7 @@ func TestNewTokenManager_VerifyOnly(t *testing.T) {
 	pubKey, _, err := generateRSAKeyPair()
 	require.NoError(t, err)
 
-	m, err := NewTokenManager(pubKey, nil, slog.Default())
+	m, err := NewTokenManager(pubKey, nil, accessTokenTTL, slog.Default())
 	require.NoError(t, err)
 	assert.True(t, m.verifyOnly)
 }
@@ -93,7 +95,7 @@ func TestNewTokenManager_InvalidPublicKey(t *testing.T) {
 	_, privKey, err := generateRSAKeyPair()
 	require.NoError(t, err)
 
-	_, err = NewTokenManager([]byte("not-a-pem"), privKey, slog.Default())
+	_, err = NewTokenManager([]byte("not-a accessTokenTTL,-pem"), privKey, accessTokenTTL, slog.Default())
 	require.Error(t, err)
 }
 
@@ -101,7 +103,7 @@ func TestNewTokenManager_InvalidPrivateKey(t *testing.T) {
 	pubKey, _, err := generateRSAKeyPair()
 	require.NoError(t, err)
 
-	_, err = NewTokenManager(pubKey, []byte("not-a-pem"), slog.Default())
+	_, err = NewTokenManager(pubKey, []byte("not-a-pem"), accessTokenTTL, slog.Default())
 	require.Error(t, err)
 }
 
@@ -125,7 +127,7 @@ func TestGenerateAccessToken_VerifyOnly(t *testing.T) {
 	pubKey, _, err := generateRSAKeyPair()
 	require.NoError(t, err)
 
-	m, err := NewTokenManager(pubKey, nil, slog.Default())
+	m, err := NewTokenManager(pubKey, nil, accessTokenTTL, slog.Default())
 	require.NoError(t, err)
 
 	_, err = m.GenerateAccessToken(aliceID)
@@ -190,7 +192,7 @@ func TestVerifyAccessToken_WrongKey(t *testing.T) {
 	tokenStr, err := token.SignedString(rsaKey)
 	require.NoError(t, err)
 
-	m, err := NewTokenManager(pubKey, privKey, slog.Default())
+	m, err := NewTokenManager(pubKey, privKey, accessTokenTTL, slog.Default())
 	require.NoError(t, err)
 	_ = m
 
