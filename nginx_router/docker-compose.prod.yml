@@ -21,6 +21,7 @@ services:
       - auth-prod
       - chat-prod
       - friends-prod
+    networks: [frontend]
 
   certbot:
     image: certbot/certbot
@@ -39,6 +40,7 @@ services:
       - "3000"
     environment:
       API_INTERNAL_URL: "http://nginx-prod:8080"
+    networks: [frontend]
 
   pg-prod:
     container_name: pg-prod
@@ -49,12 +51,13 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: "${PG_PASSWORD}"
     volumes:
-      - ".data/pg-prod:/var/lib/postgresql/data"
+      - pg-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d messenger"]
       interval: 5s
       timeout: 5s
       retries: 10
+    networks: [backend]
 
   migrate:
     image: postgres:16-alpine
@@ -72,6 +75,7 @@ services:
           echo "Applying $$f"
           psql -h pg-prod -U postgres -d messenger -f $$f
         done
+    networks: [backend]
 
   redis-prod:
     container_name: redis-prod
@@ -79,12 +83,13 @@ services:
     restart: always
     command: redis-server --requirepass "${REDIS_PASSWORD}"
     volumes:
-      - ".data/redis-prod:/var/lib/redis/data"
+      - redis-data:/var/lib/redis/data
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 5s
       timeout: 5s
       retries: 10
+    networks: [backend]
 
   auth-prod:
     container_name: auth-prod
@@ -95,9 +100,11 @@ services:
       - "8081"
     volumes:
       - ../config/auth_service:/etc/auth_service
+      - ./.env.prod:/etc/auth_service
     depends_on:
       migrate:
         condition: service_completed_successfully
+    networks: [frontned, backend]
 
   chat-prod:
     container_name: chat-prod
@@ -108,11 +115,13 @@ services:
       - "8082"
     volumes:
       - ../config/chat_service:/etc/chat_service
+      - ./.env.prod:/etc/chat_service
     depends_on:
       migrate:
         condition: service_completed_successfully
       redis-prod:
         condition: service_healthy
+    networks: [frontned, backend]
 
   friends-prod:
     container_name: friends-prod
@@ -123,6 +132,16 @@ services:
       - "8083"
     volumes:
       - ../config/friends_service:/etc/friends_service
+      - ./.env.prod:/etc/friends_service
     depends_on:
       migrate:
         condition: service_completed_successfully
+    networks: [frontned, backend]
+
+volumes:
+  pg-data:
+  redis-data:
+
+networks:
+  frontend:
+  backend:

@@ -95,6 +95,7 @@ services:
       - "8081"
     volumes:
       - ../config/auth_service:/etc/auth_service
+      - ./.env.local:/etc/auth_service
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -109,6 +110,7 @@ services:
       - "8082"
     volumes:
       - ../config/chat_service:/etc/chat_service
+      - ./.env.local:/etc/chat_service
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -123,6 +125,7 @@ services:
       - "8083"
     volumes:
       - ../config/friends_service:/etc/friends_service
+      - ./.env.local:/etc/friends_service
     depends_on:
       migrate:
         condition: service_completed_successfully

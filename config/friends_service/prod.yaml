@@ -1,7 +1,7 @@
 env: prod
 
 http:
-  port: 8081
+  port: 8083
   read_timeout: 10s
   write_timeout: 10s
   shutdown_timeout: 10s
