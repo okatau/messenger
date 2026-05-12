@@ -5,6 +5,7 @@ import (
 	"errors"
 	"friends_service/internal/domain"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -18,6 +19,9 @@ type FriendshipRepository interface {
 	DeclineFriend(ctx context.Context, userID, inviterID string) (bool, error)
 	CancelFriend(ctx context.Context, userID, inviterID string) (bool, error)
 	RemoveFriend(ctx context.Context, userID, friendID string) (bool, error)
+	IsFriend(ctx context.Context, userID, friendID string) (bool, error)
+	GetInvites(ctx context.Context, userID string) ([]*domain.User, error)
+	GetFriendByUsername(ctx context.Context, userID, username, cursor string) ([]*domain.User, error)
 }
 
 type friendshipRepo struct {
@@ -132,4 +136,87 @@ func (r *friendshipRepo) RemoveFriend(ctx context.Context, userID, friendID stri
 
 	tag, err := r.pool.Exec(ctx, query, userID, friendID)
 	return tag.RowsAffected() > 0, err
+}
+
+func (r *friendshipRepo) IsFriend(ctx context.Context, userID, friendID string) (bool, error) {
+	query := `
+		SELECT EXISTS (
+			SELECT 1
+			FROM friendships
+			WHERE (requester_id = $1 AND addressee_id = $2) OR (requester_id = $2 AND addressee_id = $1)
+		)
+	`
+
+	var isFriend bool
+	err := r.pool.QueryRow(ctx, query, userID, friendID).Scan(&isFriend)
+	return isFriend, err
+}
+
+func (r *friendshipRepo) GetInvites(ctx context.Context, userID string) ([]*domain.User, error) {
+	query := `
+		SELECT u.id, u.name
+		FROM friendships f
+		JOIN users u ON u.id = f.requester_id
+		WHERE f.addressee_id = $1 AND status = 'pending'
+	`
+
+	rows, err := r.pool.Query(ctx, query, userID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	defer rows.Close()
+
+	var invites []*domain.User
+	for rows.Next() {
+		var invite domain.User
+		if err := rows.Scan(&invite.ID, &invite.Username); err != nil {
+			return nil, err
+		}
+		invites = append(invites, &invite)
+	}
+
+	return invites, rows.Err()
+}
+
+func (r *friendshipRepo) GetFriendByUsername(ctx context.Context, userID, name, cursor string) ([]*domain.User, error) {
+	query := `
+		SELECT id, username, email, created_at FROM (
+              SELECT u.id, u.name AS username, u.email, u.created_at                                  
+              FROM friendships f
+              JOIN users u ON u.id = f.requester_id                                                   
+              WHERE f.addressee_id = $1 AND f.status = 'accepted'                                     
+                AND u.name ILIKE $2 || '%'
+                AND u.name > $3                                                                       
+                  
+              UNION
+
+              SELECT u.id, u.name AS username, u.email, u.created_at
+              FROM friendships f                                                                      
+              JOIN users u ON u.id = f.addressee_id
+              WHERE f.requester_id = $1 AND f.status = 'accepted'                                     
+                AND u.name ILIKE $2 || '%'
+                AND u.name > $3                                                                       
+          ) AS friends
+          ORDER BY username                                                                           
+          LIMIT $4
+	`
+
+	rows, err := r.pool.Query(ctx, query, userID, name, cursor, pageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []*domain.User
+	for rows.Next() {
+		var u domain.User
+		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.CreatedAt); err != nil {
+			return nil, err
+		}
+		users = append(users, &u)
+	}
+	return users, rows.Err()
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 
 	"chat_service/internal/domain"
 	"chat_service/internal/service"
@@ -16,14 +17,21 @@ import (
 
 const wsCodeUnauthorized = 4001
 
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true // TODO: проверять origin в проде
-	},
+func getUpgrader(whitelist []string) websocket.Upgrader {
+	return websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			origin := r.Header.Get("Origin")
+			if slices.Contains(whitelist, origin) {
+				return true
+			}
+			return false
+		},
+	}
 }
 
-func Connect(hub service.Hub, manager *token_manager.TokenManager, ctx context.Context) echo.HandlerFunc {
+func Connect(hub service.Hub, manager *token_manager.TokenManager, ctx context.Context, whitelist []string) echo.HandlerFunc {
 	return func(c *echo.Context) error {
+		upgrader := getUpgrader(whitelist)
 		conn, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
 		if err != nil {
 			return err

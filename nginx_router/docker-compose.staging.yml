@@ -1,0 +1,18 @@
+services:
+
+  nginx-prod:
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.staging.conf:/etc/nginx/nginx.conf:ro
+    command: nginx -g 'daemon off;'
+    environment:
+      DOMAIN: ""
+    depends_on:
+      - frontend-prod
+      - auth-prod
+      - chat-prod
+      - friends-prod
+
+  certbot:
+    profiles: [disabled]

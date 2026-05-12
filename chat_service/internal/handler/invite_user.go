@@ -41,6 +41,6 @@ func InviteUser(hub service.Hub) echo.HandlerFunc {
 			}
 		}
 
-		return c.JSON(http.StatusNoContent, nil)
+		return c.NoContent(http.StatusNoContent)
 	}
 }

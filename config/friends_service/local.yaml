@@ -2,9 +2,18 @@ env: local
 
 http:
   port: 8083
+  grpc_port: 50051
   read_timeout: 10s
   write_timeout: 10s
   shutdown_timeout: 10s
 
+redis:
+  addrs:
+    - redis-local:6379
+
 auth:
   access_token_ttl: 30m
+
+limits:
+  search: 20
+  add: 10

@@ -90,42 +90,59 @@ services:
     restart: always
     build:
       context: ../auth_service
-      dockerfile: Dockerfile.local
+      dockerfile: Dockerfile
+    environment:            
+      APP_ENV_FILE: /etc/auth_service/.env.local
+      APP_CONFIG_FILE: /etc/auth_service/local.yaml
     expose:
       - "8081"
+    # ports:
+    #   - "8081:8081"
+    # command: ["./server", "-env", "/etc/auth_service/.env.local", "-config", "/etc/auth_service/local.yaml"]
     volumes:
       - ../config/auth_service:/etc/auth_service
-      - ./.env.local:/etc/auth_service
+      - ./.env.local:/etc/auth_service/.env.local
     depends_on:
       migrate:
         condition: service_completed_successfully
-  
+      redis-local:
+        condition: service_healthy
+
   chat-local:
     container_name: chat-local
     restart: always
     build:
       context: ../chat_service
-      dockerfile: Dockerfile.local
+      dockerfile: Dockerfile
+    environment:            
+      APP_ENV_FILE: /etc/chat_service/.env.local
+      APP_CONFIG_FILE: /etc/chat_service/local.yaml
     expose:
       - "8082"
     volumes:
       - ../config/chat_service:/etc/chat_service
-      - ./.env.local:/etc/chat_service
+      - ./.env.local:/etc/chat_service/.env.local
     depends_on:
       migrate:
         condition: service_completed_successfully
-  
+      friends-local:
+        condition: service_started
+
   friends-local:
     container_name: friends-local
     restart: always
     build:
       context: ../friends_service
-      dockerfile: Dockerfile.local
+      dockerfile: Dockerfile
+    environment:            
+      APP_ENV_FILE: /etc/friends_service/.env.local
+      APP_CONFIG_FILE: /etc/friends_service/local.yaml
     expose:
       - "8083"
+      - "50051"
     volumes:
       - ../config/friends_service:/etc/friends_service
-      - ./.env.local:/etc/friends_service
+      - ./.env.local:/etc/friends_service/.env.local
     depends_on:
       migrate:
         condition: service_completed_successfully

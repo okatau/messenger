@@ -5,10 +5,9 @@ import (
 	"crypto/rsa"
 	"encoding/hex"
 	"errors"
+	"friends_service/pkg/service_logger"
 	"log/slog"
 	"time"
-
-	loggerPkg "friends_service/pkg/logger"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -84,12 +83,12 @@ func (m *TokenManager) VerifyAccessToken(tokenStr string) (*jwt.RegisteredClaims
 		return m.publicKey, nil
 	})
 	if err != nil {
-		logger.Error("error parse with claims", loggerPkg.Err(err))
+		logger.Error("error parse with claims", service_logger.Err(err))
 		return nil, err
 	}
 	claims, ok := token.Claims.(*jwt.RegisteredClaims)
 	if !ok {
-		logger.Error("error parse token", loggerPkg.Err(err))
+		logger.Error("error parse token", service_logger.Err(err))
 		return nil, jwt.ErrSignatureInvalid
 	}
 	return claims, nil

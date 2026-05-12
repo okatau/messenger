@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"friends_service/internal/domain"
+	"friends_service/internal/mocks"
 	"net/http"
 	"testing"
 
@@ -17,20 +18,20 @@ func Test_Handler_GetFriendsList(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		setup      func(svc *friendshipSvcMock)
+		setup      func(svc *mocks.MockFriendship)
 		wantStatus int
 	}{
 		{
 			name: "success",
-			setup: func(svc *friendshipSvcMock) {
-				svc.On("GetFriendsList", mock.Anything, aliceID).Return(friends, nil)
+			setup: func(svc *mocks.MockFriendship) {
+				svc.EXPECT().GetFriendsList(mock.Anything, aliceID).Return(friends, nil)
 			},
 			wantStatus: http.StatusOK,
 		},
 		{
 			name: "internal error",
-			setup: func(svc *friendshipSvcMock) {
-				svc.On("GetFriendsList", mock.Anything, aliceID).Return([]*domain.User{}, dbError)
+			setup: func(svc *mocks.MockFriendship) {
+				svc.EXPECT().GetFriendsList(mock.Anything, aliceID).Return([]*domain.User{}, dbError)
 			},
 			wantStatus: http.StatusInternalServerError,
 		},
@@ -38,7 +39,7 @@ func Test_Handler_GetFriendsList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &friendshipSvcMock{}
+			svc := mocks.NewMockFriendship(t)
 			if tt.setup != nil {
 				tt.setup(svc)
 			}
@@ -55,8 +56,6 @@ func Test_Handler_GetFriendsList(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, tt.wantStatus, rec.Code)
 			}
-
-			svc.AssertExpectations(t)
 		})
 	}
 }

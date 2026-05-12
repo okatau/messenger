@@ -2,72 +2,110 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"friends_service/internal/components"
 	"friends_service/internal/handler"
+	grpcHandler "friends_service/internal/handler/grpc"
 	"friends_service/internal/middleware"
 	"friends_service/pkg/config"
+	"friends_service/pkg/service_logger"
+	"friends_service/pkg/service_rate_limiter"
 	"log"
+	"net"
 	"net/http"
-	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	pb "friends_service/pkg/friendspb"
+
 	"github.com/labstack/echo/v5"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
 )
 
 func main() {
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
 	cfg := config.Load[components.Config]()
 
-	ctxTimeout, cancelTimeout := context.WithTimeout(ctx, cfg.ServerConfig.ShutdownTimeout)
-	defer cancelTimeout()
+	initCtx, cancelInit := context.WithTimeout(ctx, cfg.ServerConfig.ShutdownTimeout)
+	defer cancelInit()
 
-	components := components.InitComponents(ctxTimeout, cfg)
+	comps := components.InitComponents(initCtx, cfg)
 
-	auth := middleware.Auth(components.TokenManager)
-	loggerMW := middleware.Logger(components.Logger)
+	auth := middleware.Auth(comps.TokenManager)
+	loggerMW := service_logger.LoggerMW(comps.Logger)
+	rl := func(limitRate int) echo.MiddlewareFunc {
+		return service_rate_limiter.RateLimitByUser(comps.Limiter, comps.Logger, limitRate)
+	}
+
 	router := echo.New()
 	router.Use(auth)
 	router.Use(loggerMW)
 
-	router.GET("", handler.GetFriendsList(components.Svc))
-	router.GET("/search", handler.SearchUser(components.Svc)) // TODO semantics
+	router.GET("", handler.GetFriendsList(comps.Svc))
+	router.GET("/search", handler.SearchUser(comps.Svc), rl(cfg.Limits.SearchLimit))
+	router.GET("/invites", handler.GetInvites(comps.Svc), rl(cfg.Limits.SearchLimit))
+	router.GET("/search/friend", handler.SearchFriend(comps.Svc), rl(cfg.Limits.SearchLimit))
 
-	router.POST("/add", handler.SendFriendRequest(components.Svc))
-	router.POST("/accept", handler.AcceptFriendRequest(components.Svc))
-	router.POST("/decline", handler.DeclineFriendRequest(components.Svc))
-	router.POST("/cancel", handler.CancelFriendRequest(components.Svc))
+	router.POST("/add", handler.SendFriendRequest(comps.Svc), rl(cfg.Limits.AddLimit))
+	router.POST("/accept", handler.AcceptFriendRequest(comps.Svc))
+	router.POST("/decline", handler.DeclineFriendRequest(comps.Svc))
+	router.POST("/cancel", handler.CancelFriendRequest(comps.Svc)) // no use for now
 
-	router.DELETE("/:friendId", handler.RemoveFriend(components.Svc))
-
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		<-quit
-		cancel()
-	}()
+	router.DELETE("/:friendId", handler.RemoveFriend(comps.Svc))
 
 	// TODO add TLS
-	serv := &http.Server{
+	httpServer := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.ServerConfig.Port),
 		Handler: router,
-		// ReadTimeout:  cfg.ServerConfig.ReadTimeout,
-		// WriteTimeout: cfg.ServerConfig.WriteTimeout,
 	}
 
-	if err := serv.ListenAndServe(); err != nil {
-		components.Logger.Info(fmt.Sprintf("listening friends service on %d", cfg.ServerConfig.Port))
-		log.Printf("server stopped: %v", err)
+	grpcServer := grpc.NewServer()
+	pb.RegisterFriendshipServer(grpcServer, &grpcHandler.GRPCServer{Svc: comps.Svc})
+
+	g, gCtx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		comps.Logger.Info(fmt.Sprintf("listening friends service on %d", cfg.ServerConfig.Port))
+		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return fmt.Errorf("http server: %w", err)
+		}
+		return nil
+	})
+
+	g.Go(func() error {
+		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.ServerConfig.GRPCPort))
+		if err != nil {
+			return fmt.Errorf("grpc listen: %w", err)
+		}
+		comps.Logger.Info(fmt.Sprintf("listening grpc friends service on %d", cfg.ServerConfig.GRPCPort))
+		if err := grpcServer.Serve(lis); err != nil {
+			return fmt.Errorf("grpc server: %w", err)
+		}
+		return nil
+	})
+
+	g.Go(func() error {
+		<-gCtx.Done()
+
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		grpcServer.GracefulStop()
+
+		if err := httpServer.Shutdown(shutdownCtx); err != nil {
+			return fmt.Errorf("http shutdown: %w", err)
+		}
+
+		comps.Shutdown(shutdownCtx)
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		log.Fatal(err)
 	}
-
-	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, 10*time.Second)
-	defer shutdownCancel()
-
-	serv.Shutdown(shutdownCtx)
-	components.Shutdown(shutdownCtx)
 }

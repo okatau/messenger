@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -11,7 +10,7 @@ import (
 	"time"
 
 	"auth_service/internal/domain"
-	"auth_service/internal/repository"
+	"auth_service/internal/service/mocks"
 	"auth_service/pkg/token_manager"
 
 	"github.com/stretchr/testify/assert"
@@ -22,47 +21,6 @@ import (
 
 var refreshTokenTTL = 30 * 24 * time.Hour
 var accesttTokenTTL = 15 * time.Minute
-
-type sessionRepoMock struct{ mock.Mock }
-
-func (sr *sessionRepoMock) GetSessionByToken(ctx context.Context, refreshToken string) (*domain.Session, error) {
-	args := sr.Called(ctx, refreshToken)
-	return args.Get(0).(*domain.Session), args.Error(1)
-}
-func (sr *sessionRepoMock) CreateSession(ctx context.Context, userID, name, refreshToken string, expiresAt time.Time) error {
-	args := sr.Called(ctx, userID, name, refreshToken)
-	return args.Error(0)
-}
-func (sr *sessionRepoMock) DeleteSession(ctx context.Context, refreshToken string) (*domain.Session, error) {
-	args := sr.Called(ctx, refreshToken)
-	return args.Get(0).(*domain.Session), args.Error(1)
-}
-func (sr *sessionRepoMock) DeleteSessionsByUserID(ctx context.Context, userID string) ([]*domain.Session, error) {
-	args := sr.Called(ctx, userID)
-	return args.Get(0).([]*domain.Session), args.Error(1)
-}
-
-type userRepoMock struct{ mock.Mock }
-
-func (ur *userRepoMock) GetUserByID(ctx context.Context, id string) (*domain.User, error) {
-	args := ur.Called(ctx, id)
-	return args.Get(0).(*domain.User), args.Error(1)
-}
-func (ur *userRepoMock) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
-	args := ur.Called(ctx, email)
-	return args.Get(0).(*domain.User), args.Error(1)
-}
-func (ur *userRepoMock) CreateUser(ctx context.Context, name, email, passwordHash string) (*domain.User, error) {
-	args := ur.Called(ctx, name, email)
-	return args.Get(0).(*domain.User), args.Error(1)
-}
-func (ur *userRepoMock) DeleteUser(ctx context.Context, id string) (*domain.User, error) {
-	args := ur.Called(ctx, id)
-	return args.Get(0).(*domain.User), args.Error(1)
-}
-
-var _ repository.UserRepository = (*userRepoMock)(nil)
-var _ repository.SessionRepository = (*sessionRepoMock)(nil)
 
 func setupTokenManager(t *testing.T) *token_manager.TokenManager {
 	t.Helper()
@@ -83,7 +41,7 @@ func setupTokenManager(t *testing.T) *token_manager.TokenManager {
 	return manager
 }
 
-func setupAuthSvc(t *testing.T, uMock *userRepoMock, sMock *sessionRepoMock) Auth {
+func setupAuthSvc(t *testing.T, uMock *mocks.MockUserRepository, sMock *mocks.MockSessionRepository) Auth {
 	t.Helper()
 	manager := setupTokenManager(t)
 
@@ -107,22 +65,22 @@ func Test_Register(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		setup    func(*userRepoMock, *sessionRepoMock)
+		setup    func(*mocks.MockUserRepository, *mocks.MockSessionRepository)
 		wantName string
 		wantErr  error
 	}{
 		{
 			name: "success",
-			setup: func(ur *userRepoMock, sr *sessionRepoMock) {
-				ur.On("GetUserByEmail", mock.Anything, "alice@mail.com").Return((*domain.User)(nil), nil)
-				ur.On("CreateUser", mock.Anything, "alice", "alice@mail.com").Return(&user, nil)
+			setup: func(ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
+				ur.EXPECT().GetUserByEmail(mock.Anything, "alice@mail.com").Return((*domain.User)(nil), nil)
+				ur.EXPECT().CreateUser(mock.Anything, "alice", "alice@mail.com", mock.Anything).Return(&user, nil)
 			},
 			wantName: "alice",
 		},
 		{
 			name: "user exists",
-			setup: func(ur *userRepoMock, sr *sessionRepoMock) {
-				ur.On("GetUserByEmail", mock.Anything, "alice@mail.com").Return(&domain.User{}, nil)
+			setup: func(ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
+				ur.EXPECT().GetUserByEmail(mock.Anything, "alice@mail.com").Return(&domain.User{}, nil)
 			},
 			wantName: "alice",
 			wantErr:  domain.ErrUserExists,
@@ -131,8 +89,8 @@ func Test_Register(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uMock := &userRepoMock{}
-			sMock := &sessionRepoMock{}
+			uMock := &mocks.MockUserRepository{}
+			sMock := &mocks.MockSessionRepository{}
 			tt.setup(uMock, sMock)
 
 			svc := setupAuthSvc(t, uMock, sMock)
@@ -156,30 +114,32 @@ func Test_Login(t *testing.T) {
 	alicePW := "alice"
 	alicePWHash, err := bcrypt.GenerateFromPassword([]byte(alicePW), bcrypt.DefaultCost)
 	require.NoError(t, err)
+	invalidPWHash, err := bcrypt.GenerateFromPassword([]byte("invalid pw hash"), bcrypt.DefaultCost)
+	require.NoError(t, err)
 
 	tests := []struct {
 		name     string
 		email    string
 		password string
-		setup    func(*userRepoMock, *sessionRepoMock)
+		setup    func(*mocks.MockUserRepository, *mocks.MockSessionRepository)
 		wantErr  error
 	}{
 		{
 			name:     "success",
 			email:    aliceEmail,
 			password: alicePW,
-			setup: func(ur *userRepoMock, sr *sessionRepoMock) {
-				ur.On("GetUserByEmail", mock.Anything, aliceEmail).Return(&domain.User{ID: alice, Username: alice, PasswordHash: string(alicePWHash)}, nil)
-				sr.On("CreateSession", mock.Anything, alice, alice, mock.Anything, mock.Anything).Return(nil)
-				sr.On("DeleteSessionsByUserID", mock.Anything, alice).Return(([]*domain.Session)(nil), nil)
+			setup: func(ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
+				ur.EXPECT().GetUserByEmail(mock.Anything, aliceEmail).Return(&domain.User{ID: alice, Username: alice, PasswordHash: string(alicePWHash)}, nil)
+				sr.EXPECT().CreateSession(mock.Anything, alice, alice, mock.Anything, mock.Anything).Return(nil)
+				sr.EXPECT().DeleteSessionsByUserID(mock.Anything, alice).Return(([]*domain.Session)(nil), nil)
 			},
 		},
 		{
 			name:     "user not found",
 			email:    aliceEmail,
 			password: alicePW,
-			setup: func(ur *userRepoMock, sr *sessionRepoMock) {
-				ur.On("GetUserByEmail", mock.Anything, aliceEmail).Return((*domain.User)(nil), nil)
+			setup: func(ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
+				ur.EXPECT().GetUserByEmail(mock.Anything, aliceEmail).Return((*domain.User)(nil), nil)
 			},
 			wantErr: domain.ErrUserNotFound,
 		},
@@ -187,8 +147,8 @@ func Test_Login(t *testing.T) {
 			name:     "user forbidden",
 			email:    aliceEmail,
 			password: alicePW,
-			setup: func(ur *userRepoMock, sr *sessionRepoMock) {
-				ur.On("GetUserByEmail", mock.Anything, aliceEmail).Return(&domain.User{ID: alice, Username: alice, PasswordHash: alicePW}, nil)
+			setup: func(ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
+				ur.EXPECT().GetUserByEmail(mock.Anything, aliceEmail).Return(&domain.User{ID: alice, Username: alice, PasswordHash: string(invalidPWHash)}, nil)
 			},
 			wantErr: domain.ErrUserForbidden,
 		},
@@ -196,8 +156,8 @@ func Test_Login(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uMock := &userRepoMock{}
-			sMock := &sessionRepoMock{}
+			uMock := &mocks.MockUserRepository{}
+			sMock := &mocks.MockSessionRepository{}
 
 			svc := setupAuthSvc(t, uMock, sMock)
 			tt.setup(uMock, sMock)
@@ -210,9 +170,6 @@ func Test_Login(t *testing.T) {
 				require.NoError(t, err)
 				assert.NotNil(t, session)
 			}
-
-			uMock.AssertExpectations(t)
-			sMock.AssertExpectations(t)
 		})
 	}
 }
@@ -229,31 +186,31 @@ func Test_Refresh(t *testing.T) {
 	tests := []struct {
 		name    string
 		token   string
-		setup   func(*sessionRepoMock)
+		setup   func(*mocks.MockSessionRepository)
 		wantErr error
 	}{
 		{
 			name:  "success",
 			token: session.RefreshToken,
-			setup: func(sr *sessionRepoMock) {
-				sr.On("GetSessionByToken", mock.Anything, session.RefreshToken).Return(session, nil)
-				sr.On("DeleteSession", mock.Anything, session.RefreshToken).Return((*domain.Session)(nil), nil)
-				sr.On("CreateSession", mock.Anything, session.UserID, session.Username, mock.Anything, mock.Anything).Return(nil)
+			setup: func(sr *mocks.MockSessionRepository) {
+				sr.EXPECT().GetSessionByToken(mock.Anything, session.RefreshToken).Return(session, nil)
+				sr.EXPECT().DeleteSession(mock.Anything, session.RefreshToken).Return((*domain.Session)(nil), nil)
+				sr.EXPECT().CreateSession(mock.Anything, session.UserID, session.Username, mock.Anything, mock.Anything).Return(nil)
 			},
 		},
 		{
 			name:  "token not found",
 			token: session.RefreshToken,
-			setup: func(sr *sessionRepoMock) {
-				sr.On("GetSessionByToken", mock.Anything, session.RefreshToken).Return((*domain.Session)(nil), nil)
+			setup: func(sr *mocks.MockSessionRepository) {
+				sr.EXPECT().GetSessionByToken(mock.Anything, session.RefreshToken).Return((*domain.Session)(nil), nil)
 			},
 			wantErr: domain.ErrTokenNotFound,
 		},
 		{
 			name:  "expired token",
 			token: session.RefreshToken,
-			setup: func(sr *sessionRepoMock) {
-				sr.On("GetSessionByToken", mock.Anything, session.RefreshToken).Return(&domain.Session{ExpiresAt: time.Now().Add(-2 * time.Hour)}, nil)
+			setup: func(sr *mocks.MockSessionRepository) {
+				sr.EXPECT().GetSessionByToken(mock.Anything, session.RefreshToken).Return(&domain.Session{ExpiresAt: time.Now().Add(-2 * time.Hour)}, nil)
 			},
 			wantErr: domain.ErrTokenExpired,
 		},
@@ -261,8 +218,8 @@ func Test_Refresh(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uMock := &userRepoMock{}
-			sMock := &sessionRepoMock{}
+			uMock := &mocks.MockUserRepository{}
+			sMock := &mocks.MockSessionRepository{}
 
 			svc := setupAuthSvc(t, uMock, sMock)
 			tt.setup(sMock)
@@ -275,9 +232,6 @@ func Test_Refresh(t *testing.T) {
 				require.NoError(t, err)
 				assert.NotNil(t, session)
 			}
-
-			uMock.AssertExpectations(t)
-			sMock.AssertExpectations(t)
 		})
 	}
 }
@@ -294,22 +248,22 @@ func Test_Logout(t *testing.T) {
 	tests := []struct {
 		name    string
 		token   string
-		setup   func(*sessionRepoMock)
+		setup   func(*mocks.MockSessionRepository)
 		wantErr error
 	}{
 		{
 			name:  "success",
 			token: session.RefreshToken,
-			setup: func(sr *sessionRepoMock) {
-				sr.On("GetSessionByToken", mock.Anything, session.RefreshToken).Return(session, nil)
-				sr.On("DeleteSession", mock.Anything, session.RefreshToken).Return((*domain.Session)(nil), nil)
+			setup: func(sr *mocks.MockSessionRepository) {
+				sr.EXPECT().GetSessionByToken(mock.Anything, session.RefreshToken).Return(session, nil)
+				sr.EXPECT().DeleteSession(mock.Anything, session.RefreshToken).Return((*domain.Session)(nil), nil)
 			},
 		},
 		{
 			name:  "token not found",
 			token: session.RefreshToken,
-			setup: func(sr *sessionRepoMock) {
-				sr.On("GetSessionByToken", mock.Anything, session.RefreshToken).Return((*domain.Session)(nil), nil)
+			setup: func(sr *mocks.MockSessionRepository) {
+				sr.EXPECT().GetSessionByToken(mock.Anything, session.RefreshToken).Return((*domain.Session)(nil), nil)
 			},
 			wantErr: domain.ErrTokenNotFound,
 		},
@@ -317,8 +271,8 @@ func Test_Logout(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uMock := &userRepoMock{}
-			sMock := &sessionRepoMock{}
+			uMock := &mocks.MockUserRepository{}
+			sMock := &mocks.MockSessionRepository{}
 
 			svc := setupAuthSvc(t, uMock, sMock)
 			tt.setup(sMock)
@@ -331,9 +285,6 @@ func Test_Logout(t *testing.T) {
 				require.NoError(t, err)
 				assert.NotNil(t, session)
 			}
-
-			uMock.AssertExpectations(t)
-			sMock.AssertExpectations(t)
 		})
 	}
 }

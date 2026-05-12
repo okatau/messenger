@@ -6,30 +6,36 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
-	"time"
 
+	"chat_service/internal/clients"
 	"chat_service/internal/repository"
 	"chat_service/internal/service"
 	"chat_service/pkg/config"
-	"chat_service/pkg/logger"
+	"chat_service/pkg/service_logger"
 	"chat_service/pkg/token_manager"
 
+	"github.com/go-redis/redis_rate/v10"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type Config struct {
-	Env          string                `yaml:"env" env-default:"local"`
-	Postgres     config.PostgresConfig `env-prefix:"PG_"`
-	Redis        config.RedisConfig
-	Auth         AuthConfig
-	ServerConfig config.HTTPConfig `yaml:"http"`
+	Env                string                `yaml:"env" env-default:"local"`
+	Postgres           config.PostgresConfig `env-prefix:"PG_"`
+	Redis              config.RedisConfig
+	Auth               config.AuthConfig
+	ServerConfig       config.HTTPConfig `yaml:"http"`
+	Limits             RateLimiter       `yaml:"limits"`
+	OriginWhitelist    []string          `yaml:"origin_whitelist"`
+	FriendsGRPCAddress string            `yaml:"friends_grpc_addr" env:"FRIENDS_GRPC_ADDR" env-required:"true"`
 }
 
-type AuthConfig struct {
-	AccessTokenTTL time.Duration `yaml:"access_token_ttl" env-default:"15m"`
-	// RefreshTokenTTL    time.Duration `yaml:"refresh_token_ttl" env-default:"720h"` // 30 days
-	PublicKeyPEMBase64 string `env:"AUTH_PUBLIC_PEM_BASE64" env-required:"true"`
+type RateLimiter struct {
+	CreateRoomLimit int `yaml:"create_room" env-default:"5"`
+	InviteLimit     int `yaml:"invite" env-default:"10"`
+	MessagesLimit   int `yaml:"messages" env-default:"30"`
 }
 
 type Components struct {
@@ -38,6 +44,8 @@ type Components struct {
 	Hub          service.Hub
 	TokenManager *token_manager.TokenManager
 	Logger       *slog.Logger
+	Limiter      *redis_rate.Limiter
+	grpcConn     *grpc.ClientConn
 }
 
 func InitComponents(ctx context.Context, hubCtx context.Context, cfg *Config) *Components {
@@ -59,7 +67,9 @@ func InitComponents(ctx context.Context, hubCtx context.Context, cfg *Config) *C
 		log.Fatalf("redis ping failed: %v", err)
 	}
 
-	logger := logger.InitLogger(cfg.Env)
+	limiter := redis_rate.NewLimiter(rdb)
+
+	logger := service_logger.InitLogger(cfg.Env)
 
 	pemBytes, err := base64.StdEncoding.DecodeString(cfg.Auth.PublicKeyPEMBase64)
 	if err != nil {
@@ -75,7 +85,17 @@ func InitComponents(ctx context.Context, hubCtx context.Context, cfg *Config) *C
 	userRepo := repository.NewUserRepository(pool)
 	msgRepo := repository.NewMessageRepository(pool, rdb)
 
-	hub := service.NewHub(hubCtx, userRepo, roomRepo, msgRepo, logger)
+	conn, err := grpc.NewClient(
+		cfg.FriendsGRPCAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	friendsClient := clients.NewFriendshipClient(conn)
+
+	hub := service.NewHub(hubCtx, userRepo, roomRepo, msgRepo, logger, friendsClient)
 
 	return &Components{
 		Postgres:     pool,
@@ -83,6 +103,8 @@ func InitComponents(ctx context.Context, hubCtx context.Context, cfg *Config) *C
 		Hub:          hub,
 		TokenManager: manager,
 		Logger:       logger,
+		Limiter:      limiter,
+		grpcConn:     conn,
 	}
 }
 
@@ -90,6 +112,7 @@ func (c *Components) Shutdown(ctx context.Context) {
 	c.Postgres.Close()
 	c.Redis.Close()
 	c.Hub.Shutdown(ctx)
+	c.grpcConn.Close()
 }
 
 func getPostgresDSN(cfg config.PostgresConfig) string {

@@ -1,11 +1,11 @@
 package handler
 
 import (
-	"errors"
 	"net/http"
 	"testing"
 
 	"chat_service/internal/domain"
+	"chat_service/internal/service"
 
 	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
@@ -14,13 +14,13 @@ import (
 )
 
 func Test_GetRoom(t *testing.T) {
-	aliceID := "aliceID"
-
 	t.Run("success", func(t *testing.T) {
 		_, c, res := newContext(http.MethodGet, "/rooms", "")
 		c.Set("userID", aliceID)
-		svc := &hubMock{}
-		svc.On("GetRoomsByUser", mock.Anything, aliceID).Return(([]*domain.Room)(nil), nil)
+
+		svc := service.NewMockHub(t)
+		svc.EXPECT().GetRoomsByUser(mock.Anything, aliceID).Return(([]*domain.Room)(nil), nil)
+
 		err := GetRoom(svc)(c)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, res.Code)
@@ -29,9 +29,10 @@ func Test_GetRoom(t *testing.T) {
 	t.Run("internal server error", func(t *testing.T) {
 		_, c, _ := newContext(http.MethodGet, "/rooms", "")
 		c.Set("userID", aliceID)
-		dbError := errors.New("db down")
-		svc := &hubMock{}
-		svc.On("GetRoomsByUser", mock.Anything, aliceID).Return(([]*domain.Room)(nil), dbError)
+
+		svc := service.NewMockHub(t)
+		svc.EXPECT().GetRoomsByUser(mock.Anything, aliceID).Return(([]*domain.Room)(nil), dbError)
+
 		err := GetRoom(svc)(c)
 		var echoError *echo.HTTPError
 		require.ErrorAs(t, err, &echoError)

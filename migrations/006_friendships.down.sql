@@ -1,1 +1,1 @@
-DROP TABLE friendships;
+DROP TABLE IF EXISTS friendships;

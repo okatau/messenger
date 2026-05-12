@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"friends_service/internal/domain"
+	"friends_service/internal/mocks"
 	"net/http"
 	"testing"
 
@@ -16,14 +17,14 @@ func Test_Handler_RemoveFriend(t *testing.T) {
 	tests := []struct {
 		name       string
 		friendID   string
-		setup      func(svc *friendshipSvcMock)
+		setup      func(svc *mocks.MockFriendship)
 		wantStatus int
 	}{
 		{
 			name:     "success",
 			friendID: bobID,
-			setup: func(svc *friendshipSvcMock) {
-				svc.On("RemoveFriend", mock.Anything, aliceID, bobID).Return(nil)
+			setup: func(svc *mocks.MockFriendship) {
+				svc.EXPECT().RemoveFriend(mock.Anything, aliceID, bobID).Return(nil)
 			},
 			wantStatus: http.StatusNoContent,
 		},
@@ -35,16 +36,16 @@ func Test_Handler_RemoveFriend(t *testing.T) {
 		{
 			name:     "friend not found",
 			friendID: bobID,
-			setup: func(svc *friendshipSvcMock) {
-				svc.On("RemoveFriend", mock.Anything, aliceID, bobID).Return(domain.ErrFriendNotFound)
+			setup: func(svc *mocks.MockFriendship) {
+				svc.EXPECT().RemoveFriend(mock.Anything, aliceID, bobID).Return(domain.ErrFriendNotFound)
 			},
 			wantStatus: http.StatusNotFound,
 		},
 		{
 			name:     "internal error",
 			friendID: bobID,
-			setup: func(svc *friendshipSvcMock) {
-				svc.On("RemoveFriend", mock.Anything, aliceID, bobID).Return(dbError)
+			setup: func(svc *mocks.MockFriendship) {
+				svc.EXPECT().RemoveFriend(mock.Anything, aliceID, bobID).Return(dbError)
 			},
 			wantStatus: http.StatusInternalServerError,
 		},
@@ -52,7 +53,7 @@ func Test_Handler_RemoveFriend(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &friendshipSvcMock{}
+			svc := mocks.NewMockFriendship(t)
 			if tt.setup != nil {
 				tt.setup(svc)
 			}
@@ -70,8 +71,6 @@ func Test_Handler_RemoveFriend(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, tt.wantStatus, rec.Code)
 			}
-
-			svc.AssertExpectations(t)
 		})
 	}
 }

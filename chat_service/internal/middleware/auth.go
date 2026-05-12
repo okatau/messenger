@@ -1,10 +1,9 @@
 package middleware
 
 import (
+	"chat_service/pkg/token_manager"
 	"net/http"
 	"strings"
-
-	"chat_service/pkg/token_manager"
 
 	"github.com/labstack/echo/v5"
 )

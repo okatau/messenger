@@ -1,0 +1,40 @@
+formatter: goimports
+filename: "mock_{{.InterfaceName | snakecase}}.go"
+
+packages:
+  chat_service/internal/service:
+    interfaces:
+      Hub:
+        config:
+          dir: internal/service
+          pkgname: service
+      Room:
+        config:
+          dir: internal/service
+          pkgname: service
+      User:
+        config:
+          dir: internal/service
+          pkgname: service
+
+  chat_service/internal/repository:
+    interfaces:
+      UserRepository:
+        config:
+          dir: internal/mocks
+          pkgname: mocks
+      RoomRepository:
+        config:
+          dir: internal/mocks
+          pkgname: mocks
+      MessageRepository:
+        config:
+          dir: internal/mocks
+          pkgname: mocks
+
+  chat_service/internal/clients:
+    interfaces:
+      FriendshipClient:
+        config:
+          dir: internal/mocks
+          pkgname: mocks

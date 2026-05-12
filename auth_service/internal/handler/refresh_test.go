@@ -2,11 +2,11 @@ package handler
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"testing"
 
 	"auth_service/internal/domain"
+	"auth_service/internal/handler/mocks"
 
 	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
@@ -19,37 +19,37 @@ func Test_RefreshToken(t *testing.T) {
 	tests := []struct {
 		name       string
 		body       string
-		setup      func(s *mockAuthService)
+		setup      func(s *mocks.MockAuth)
 		wantStatus int
 		wantErr    bool
 	}{
 		{
 			name: "success",
 			body: `{"refresh_token": "refresh_token"}`,
-			setup: func(s *mockAuthService) {
-				s.On("Refresh", mock.Anything, "refresh_token").Return(&userInfo, nil)
+			setup: func(s *mocks.MockAuth) {
+				s.EXPECT().Refresh(mock.Anything, "refresh_token").Return(&userInfo, nil)
 			},
 			wantStatus: http.StatusOK,
 		},
 		{
 			name:       "invalid request body",
 			body:       `{bad}`,
-			setup:      func(s *mockAuthService) {},
+			setup:      func(s *mocks.MockAuth) {},
 			wantStatus: http.StatusBadRequest,
 			wantErr:    true,
 		},
 		{
 			name:       "invalid refresh token",
 			body:       `{"refresh_token": ""}`,
-			setup:      func(s *mockAuthService) {},
+			setup:      func(s *mocks.MockAuth) {},
 			wantStatus: http.StatusBadRequest,
 			wantErr:    true,
 		},
 		{
 			name: "internal server error",
 			body: `{"refresh_token": "refresh_token"}`,
-			setup: func(s *mockAuthService) {
-				s.On("Refresh", mock.Anything, "refresh_token").Return((*domain.AuthSession)(nil), errors.New("db"))
+			setup: func(s *mocks.MockAuth) {
+				s.EXPECT().Refresh(mock.Anything, "refresh_token").Return((*domain.AuthSession)(nil), dbError)
 			},
 			wantStatus: http.StatusInternalServerError,
 			wantErr:    true,
@@ -58,7 +58,7 @@ func Test_RefreshToken(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &mockAuthService{}
+			svc := mocks.NewMockAuth(t)
 			tt.setup(svc)
 
 			_, c, rec := newContext(http.MethodPost, "/refresh", tt.body)
@@ -76,7 +76,6 @@ func Test_RefreshToken(t *testing.T) {
 				require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 				assert.Contains(t, resp, "access_token")
 			}
-			svc.AssertExpectations(t)
 		})
 	}
 }

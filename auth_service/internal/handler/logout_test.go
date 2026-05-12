@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"errors"
+	"auth_service/internal/handler/mocks"
 	"net/http"
 	"testing"
 
@@ -15,37 +15,37 @@ func Test_Logout(t *testing.T) {
 	tests := []struct {
 		name       string
 		body       string
-		setup      func(s *mockAuthService)
+		setup      func(s *mocks.MockAuth)
 		wantStatus int
 		wantErr    bool
 	}{
 		{
 			name: "success",
 			body: `{"refresh_token": "refresh_token"}`,
-			setup: func(s *mockAuthService) {
-				s.On("Logout", mock.Anything, "refresh_token").Return(nil)
+			setup: func(s *mocks.MockAuth) {
+				s.EXPECT().Logout(mock.Anything, "refresh_token").Return(nil)
 			},
 			wantStatus: http.StatusNoContent,
 		},
 		{
 			name:       "invalid request body",
 			body:       `{bad}`,
-			setup:      func(s *mockAuthService) {},
+			setup:      func(s *mocks.MockAuth) {},
 			wantStatus: http.StatusBadRequest,
 			wantErr:    true,
 		},
 		{
 			name:       "invalid refresh token",
 			body:       `{"refresh_token": ""}`,
-			setup:      func(s *mockAuthService) {},
+			setup:      func(s *mocks.MockAuth) {},
 			wantStatus: http.StatusBadRequest,
 			wantErr:    true,
 		},
 		{
 			name: "invalid internal server error",
 			body: `{"refresh_token": "refresh_token"}`,
-			setup: func(s *mockAuthService) {
-				s.On("Logout", mock.Anything, "refresh_token").Return(errors.New("db"))
+			setup: func(s *mocks.MockAuth) {
+				s.EXPECT().Logout(mock.Anything, "refresh_token").Return(dbError)
 			},
 			wantStatus: http.StatusInternalServerError,
 			wantErr:    true,
@@ -54,7 +54,7 @@ func Test_Logout(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &mockAuthService{}
+			svc := mocks.NewMockAuth(t)
 			tt.setup(svc)
 
 			_, c, rec := newContext(http.MethodPost, "/logout", tt.body)
@@ -69,7 +69,6 @@ func Test_Logout(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, tt.wantStatus, rec.Code)
 			}
-			svc.AssertExpectations(t)
 		})
 	}
 }

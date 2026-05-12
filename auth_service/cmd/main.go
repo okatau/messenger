@@ -11,8 +11,9 @@ import (
 
 	"auth_service/internal/components"
 	"auth_service/internal/handler"
-	"auth_service/internal/middleware"
 	"auth_service/pkg/config"
+	"auth_service/pkg/service_logger"
+	"auth_service/pkg/service_rate_limiter"
 
 	"github.com/labstack/echo/v5"
 )
@@ -24,16 +25,24 @@ func main() {
 
 	ctxTimeout, cancelTimeout := context.WithTimeout(ctx, cfg.ServerConfig.ShutdownTimeout)
 	defer cancelTimeout()
-	components := components.InitComponents(ctxTimeout, cfg)
+	comps := components.InitComponents(ctxTimeout, cfg)
+
+	rl := func(limitRate int) echo.MiddlewareFunc {
+		return service_rate_limiter.RateLimitByIP(comps.Limiter, comps.Logger, limitRate)
+	}
 
 	router := echo.New()
 
-	router.Use(middleware.Logger(components.Logger))
+	router.Use(service_logger.LoggerMW(comps.Logger))
 
-	router.POST("/register", handler.Register(components.Svc))
-	router.POST("/login", handler.Login(components.Svc))
-	router.POST("/refresh", handler.Refresh(components.Svc))
-	router.POST("/logout", handler.Logout(components.Svc))
+	router.POST("/register", handler.Register(comps.Svc), rl(cfg.RateLimits.RegisterLimit))
+	router.POST("/login", handler.Login(comps.Svc), rl(cfg.RateLimits.LoginLimit))
+	router.POST("/refresh", handler.Refresh(comps.Svc))
+	router.POST("/logout", handler.Logout(comps.Svc))
+
+	// router.GET("/ping", func(c *echo.Context) error {
+	// 	return c.JSON(http.StatusOK, map[string]string{"message": "pong"})
+	// }, middleware.RateLimit(comps.Limiter, comps.Logger, cfg.RateLimits.RegisterLimit, cfg.RateLimits.LoginLimit))
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
@@ -46,8 +55,10 @@ func main() {
 		// WriteTimeout: cfg.ServerConfig.WriteTimeout,
 	}
 
+	comps.Logger.Info(fmt.Sprintf("Running on %s environment", cfg.Env))
+
 	go func() {
-		components.Logger.Info(fmt.Sprintf("listening auth service on %d", cfg.ServerConfig.Port))
+		comps.Logger.Info(fmt.Sprintf("listening auth service on %d", cfg.ServerConfig.Port))
 		if err := serv.ListenAndServe(); err != nil {
 			log.Printf("auth service stopped: %v", err)
 		}
@@ -59,5 +70,5 @@ func main() {
 	defer shutdownCancel()
 
 	serv.Shutdown(shutdownCtx)
-	components.Shutdown(shutdownCtx)
+	comps.Shutdown(shutdownCtx)
 }

@@ -1,0 +1,21 @@
+formatter: goimports
+filename: "mock_{{.InterfaceName | snakecase}}.go"
+
+packages:
+  auth_service/internal/service:
+    interfaces:
+      Auth:
+        config:
+          dir: internal/handler/mocks
+          pkgname: mocks
+
+  auth_service/internal/repository:
+    interfaces:
+      UserRepository:
+        config:
+          dir: internal/service/mocks
+          pkgname: mocks
+      SessionRepository:
+        config:
+          dir: internal/service/mocks
+          pkgname: mocks

@@ -6,9 +6,10 @@ import (
 	"sync"
 	"time"
 
+	"chat_service/internal/clients"
 	"chat_service/internal/domain"
 	"chat_service/internal/repository"
-	loggerPkg "chat_service/pkg/logger"
+	"chat_service/pkg/service_logger"
 
 	"github.com/gorilla/websocket"
 )
@@ -20,21 +21,22 @@ type Hub interface {
 	LeaveRoom(ctx context.Context, userID, roomID string) error
 	Shutdown(ctx context.Context)
 	CreateRoom(ctx context.Context, roomName, userID string) (*domain.Room, error)
-	GetRoomClients(roomID string) []string
+	GetRoomClients(ctx context.Context, roomID string) ([]*domain.User, error)
 	GetRoomHistory(ctx context.Context, userID, roomID string, before time.Time) ([]*domain.Message, error)
 	GetRoomsByUser(ctx context.Context, userID string) ([]*domain.Room, error)
 }
 
 type hub struct {
-	rooms    map[string]Room
-	users    map[string]User
-	mu       sync.RWMutex
-	ctx      context.Context
-	userRepo repository.UserRepository
-	roomRepo repository.RoomRepository
-	msgRepo  repository.MessageRepository
-	logger   *slog.Logger
-	wg       sync.WaitGroup
+	rooms         map[string]Room
+	users         map[string]User
+	mu            sync.RWMutex
+	ctx           context.Context
+	userRepo      repository.UserRepository
+	roomRepo      repository.RoomRepository
+	msgRepo       repository.MessageRepository
+	logger        *slog.Logger
+	wg            sync.WaitGroup
+	friendsClient clients.FriendshipClient
 }
 
 func NewHub(
@@ -43,15 +45,17 @@ func NewHub(
 	roomRepo repository.RoomRepository,
 	msgRepo repository.MessageRepository,
 	logger *slog.Logger,
+	friendsClient clients.FriendshipClient,
 ) Hub {
 	return &hub{
-		rooms:    make(map[string]Room),
-		users:    make(map[string]User),
-		ctx:      ctx,
-		userRepo: userRepo,
-		roomRepo: roomRepo,
-		msgRepo:  msgRepo,
-		logger:   logger,
+		rooms:         make(map[string]Room),
+		users:         make(map[string]User),
+		ctx:           ctx,
+		userRepo:      userRepo,
+		roomRepo:      roomRepo,
+		msgRepo:       msgRepo,
+		logger:        logger,
+		friendsClient: friendsClient,
 	}
 }
 
@@ -61,7 +65,7 @@ func (h *hub) Connect(ctx context.Context, userID string, conn *websocket.Conn) 
 
 	user, err := h.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
-		logger.Error("failed to get user", loggerPkg.Err(err))
+		logger.Error("failed to get user", service_logger.Err(err))
 		return err
 	}
 	if user == nil {
@@ -70,7 +74,7 @@ func (h *hub) Connect(ctx context.Context, userID string, conn *websocket.Conn) 
 
 	rooms, err := h.roomRepo.GetRoomsByUserID(ctx, userID)
 	if err != nil {
-		logger.Error("failed to get rooms", loggerPkg.Err(err))
+		logger.Error("failed to get rooms", service_logger.Err(err))
 		return err
 	}
 
@@ -126,15 +130,24 @@ func (h *hub) InviteUser(ctx context.Context, inviterID, inviteeID, roomID strin
 
 	isMember, err := h.isMember(ctx, inviterID, roomID)
 	if err != nil {
-		logger.Error("failed to check user", loggerPkg.Err(err))
+		logger.Error("failed to check user", service_logger.Err(err))
 		return err
 	}
 	if !isMember {
 		return domain.ErrUserForbidden
 	}
 
+	isFriend, err := h.friendsClient.IsFriend(ctx, inviterID, inviteeID)
+	if err != nil {
+		logger.Error("failed to check friendship", service_logger.Err(err))
+		return err
+	}
+	if !isFriend {
+		return domain.ErrUserForbidden
+	}
+
 	if err := h.roomRepo.AddUser(ctx, inviteeID, roomID); err != nil {
-		logger.Error("failed to add user", loggerPkg.Err(err))
+		logger.Error("failed to add user", service_logger.Err(err))
 		return err
 	}
 
@@ -165,7 +178,7 @@ func (h *hub) LeaveRoom(ctx context.Context, userID, roomID string) error {
 
 	isMember, err := h.isMember(ctx, userID, roomID)
 	if err != nil {
-		logger.Error("failed to check user", loggerPkg.Err(err))
+		logger.Error("failed to check user", service_logger.Err(err))
 		return err
 	}
 	if !isMember {
@@ -173,19 +186,19 @@ func (h *hub) LeaveRoom(ctx context.Context, userID, roomID string) error {
 	}
 
 	if err := h.roomRepo.RemoveUser(ctx, userID, roomID); err != nil {
-		logger.Error("failed to remove user", loggerPkg.Err(err))
+		logger.Error("failed to remove user", service_logger.Err(err))
 		return err
 	}
 
 	isEmpty, err := h.roomRepo.IsEmpty(ctx, roomID)
 	if err != nil {
-		logger.Error("failed to IsEmpty", loggerPkg.Err(err))
+		logger.Error("failed to IsEmpty", service_logger.Err(err))
 		return err
 	}
 
 	if isEmpty {
 		if _, err := h.roomRepo.DeleteRoom(ctx, roomID); err != nil {
-			logger.Error("failed to delete room", loggerPkg.Err(err))
+			logger.Error("failed to delete room", service_logger.Err(err))
 			return err
 		}
 	}
@@ -250,16 +263,23 @@ func (h *hub) CreateRoom(ctx context.Context, roomName, userID string) (*domain.
 	return roomDTO, nil
 }
 
-func (h *hub) GetRoomClients(roomID string) []string {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
+func (h *hub) GetRoomClients(ctx context.Context, roomID string) ([]*domain.User, error) {
+	// h.mu.RLock()
+	// defer h.mu.RUnlock()
 
-	room, exists := h.rooms[roomID]
+	// room, exists := h.rooms[roomID]
+	// if !exists {
+	// 	return []string{}
+	// }
+
+	// return room.GetUsernames()
+
+	_, exists := h.rooms[roomID]
 	if !exists {
-		return []string{}
+		return nil, nil
 	}
 
-	return room.GetUsernames()
+	return h.roomRepo.GetUsersByRoomID(ctx, roomID)
 }
 
 func (h *hub) GetRoomHistory(ctx context.Context, userID, roomID string, before time.Time) ([]*domain.Message, error) {
@@ -275,15 +295,11 @@ func (h *hub) GetRoomHistory(ctx context.Context, userID, roomID string, before 
 		return nil, domain.ErrUserForbidden
 	}
 
-	if before.After(time.Now()) {
-		before = time.Time{}
-	}
-	var messages []*domain.Message
 	if before.IsZero() {
-		messages, err = h.msgRepo.GetMessages(ctx, roomID)
-	} else {
-		messages, err = h.msgRepo.GetMessagesBefore(ctx, roomID, before)
+		before = time.Now().Add(time.Second)
 	}
+
+	messages, err := h.msgRepo.GetMessagesBefore(ctx, roomID, before)
 
 	if err != nil {
 		return nil, err

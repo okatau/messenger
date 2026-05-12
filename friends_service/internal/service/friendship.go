@@ -4,9 +4,8 @@ import (
 	"context"
 	"friends_service/internal/domain"
 	"friends_service/internal/repository"
+	"friends_service/pkg/service_logger"
 	"log/slog"
-
-	loggerPkg "friends_service/pkg/logger"
 )
 
 type Friendship interface {
@@ -15,8 +14,13 @@ type Friendship interface {
 	DeclineFriendRequest(ctx context.Context, userID, inviterID string) error
 	CancelFriendRequest(ctx context.Context, userID, inviteeID string) error
 	RemoveFriend(ctx context.Context, userID, friendID string) error
+
 	GetFriendsList(ctx context.Context, userID string) ([]*domain.User, error)
-	FindMatchingUsers(ctx context.Context, username, cursor string) ([]*domain.User, error)
+	GetInvites(ctx context.Context, userID string) ([]*domain.User, error)
+	IsFriend(ctx context.Context, userID, friendID string) (bool, error)
+
+	SearchFriend(ctx context.Context, userID, searchUsername, cursor string) ([]*domain.User, error)
+	SearchUser(ctx context.Context, username, cursor string) ([]*domain.User, error)
 }
 
 type friendship struct {
@@ -46,7 +50,7 @@ func (f *friendship) SendFriendRequest(ctx context.Context, inviterID, inviteeID
 	}
 	inviteeExists, err := f.userRepo.UserExists(ctx, inviteeID)
 	if err != nil {
-		logger.Error("error reading db", loggerPkg.Err(err))
+		logger.Error("error reading db", service_logger.Err(err))
 		return err
 	}
 	if !inviteeExists {
@@ -62,7 +66,7 @@ func (f *friendship) AcceptFriendRequest(ctx context.Context, userID, inviterID 
 
 	accepted, err := f.friendshipRepo.AcceptFriend(ctx, userID, inviterID)
 	if err != nil {
-		logger.Error("error reading db", loggerPkg.Err(err))
+		logger.Error("error reading db", service_logger.Err(err))
 		return err
 	}
 	if !accepted {
@@ -77,7 +81,7 @@ func (f *friendship) DeclineFriendRequest(ctx context.Context, userID, inviterID
 
 	declined, err := f.friendshipRepo.DeclineFriend(ctx, userID, inviterID)
 	if err != nil {
-		logger.Error("error reading db", loggerPkg.Err(err))
+		logger.Error("error reading db", service_logger.Err(err))
 		return err
 	}
 	if !declined {
@@ -92,7 +96,7 @@ func (f *friendship) CancelFriendRequest(ctx context.Context, userID, inviteeID 
 
 	cancelled, err := f.friendshipRepo.CancelFriend(ctx, userID, inviteeID)
 	if err != nil {
-		logger.Error("error reading db", loggerPkg.Err(err))
+		logger.Error("error reading db", service_logger.Err(err))
 		return err
 	}
 	if !cancelled {
@@ -107,7 +111,7 @@ func (f *friendship) RemoveFriend(ctx context.Context, userID, friendID string) 
 
 	removed, err := f.friendshipRepo.RemoveFriend(ctx, userID, friendID)
 	if err != nil {
-		logger.Error("error reading db", loggerPkg.Err(err))
+		logger.Error("error reading db", service_logger.Err(err))
 		return err
 	}
 	if !removed {
@@ -122,20 +126,48 @@ func (f *friendship) GetFriendsList(ctx context.Context, userID string) ([]*doma
 
 	friends, err := f.friendshipRepo.GetFriends(ctx, userID)
 	if err != nil {
-		logger.Error("error reading db", loggerPkg.Err(err))
+		logger.Error("error reading db", service_logger.Err(err))
 		return nil, err
 	}
 	return friends, err
 }
 
-func (f *friendship) FindMatchingUsers(ctx context.Context, username, cursor string) ([]*domain.User, error) {
-	const op = "service.friendship.getfriendslist"
+func (f *friendship) IsFriend(ctx context.Context, userID, friendID string) (bool, error) {
+	return f.friendshipRepo.IsFriend(ctx, userID, friendID)
+}
+
+func (f *friendship) GetInvites(ctx context.Context, userID string) ([]*domain.User, error) {
+	const op = "service.friendship.getinvites"
+	logger := f.logger.With(slog.String("op", op))
+
+	invites, err := f.friendshipRepo.GetInvites(ctx, userID)
+	if err != nil {
+		logger.Error("error reading pending invites", service_logger.Err(err))
+		return nil, err
+	}
+	return invites, nil
+}
+
+func (f *friendship) SearchUser(ctx context.Context, username, cursor string) ([]*domain.User, error) {
+	const op = "service.friendship.searchuser"
 	logger := f.logger.With(slog.String("op", op))
 
 	users, err := f.userRepo.GetUsersByUsername(ctx, username, cursor)
 	if err != nil {
-		logger.Error("error reading db", loggerPkg.Err(err))
+		logger.Error("error reading db", service_logger.Err(err))
 		return nil, err
 	}
 	return users, err
+}
+
+func (f *friendship) SearchFriend(ctx context.Context, userID, searchUsername, cursor string) ([]*domain.User, error) {
+	const op = "service.friendship.searchfriend"
+	logger := f.logger.With(slog.String("op", op))
+
+	invites, err := f.friendshipRepo.GetFriendByUsername(ctx, userID, searchUsername, cursor)
+	if err != nil {
+		logger.Error("error reading pending invites", service_logger.Err(err))
+		return nil, err
+	}
+	return invites, nil
 }

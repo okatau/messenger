@@ -7,26 +7,29 @@ import (
 	"friends_service/internal/repository"
 	"friends_service/internal/service"
 	"friends_service/pkg/config"
-	"friends_service/pkg/logger"
+	"friends_service/pkg/service_logger"
 	"friends_service/pkg/token_manager"
 	"log"
 	"log/slog"
 	"strings"
-	"time"
 
+	"github.com/go-redis/redis_rate/v10"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 )
 
 type Config struct {
 	Env          string                `yaml:"env" env-default:"local"`
 	Postgres     config.PostgresConfig `env-prefix:"PG_"`
-	Auth         AuthConfig
+	Auth         config.AuthConfig
 	ServerConfig config.HTTPConfig `yaml:"http"`
+	Limits       RateLimits        `yaml:"limits"`
+	Redis        config.RedisConfig
 }
 
-type AuthConfig struct {
-	AccessTokenTTL     time.Duration `yaml:"access_token_ttl" env-default:"15m"`
-	PublicKeyPEMBase64 string        `env:"AUTH_PUBLIC_PEM_BASE64" env-required:"true"`
+type RateLimits struct {
+	SearchLimit int `yaml:"search" env-default:"20"`
+	AddLimit    int `yaml:"add" env-default:"10"`
 }
 
 type Components struct {
@@ -34,6 +37,7 @@ type Components struct {
 	Logger       *slog.Logger
 	TokenManager *token_manager.TokenManager
 	Postgres     *pgxpool.Pool
+	Limiter      *redis_rate.Limiter
 }
 
 func InitComponents(ctx context.Context, cfg *Config) *Components {
@@ -47,7 +51,16 @@ func InitComponents(ctx context.Context, cfg *Config) *Components {
 		log.Fatal(err)
 	}
 
-	logger := logger.InitLogger(cfg.Env)
+	rdb := redis.NewUniversalClient(&redis.UniversalOptions{
+		Addrs:    cfg.Redis.Addrs,
+		Password: cfg.Redis.Password,
+	})
+	if err = rdb.Ping(ctx).Err(); err != nil {
+		log.Fatalf("redis ping failed: %v", err)
+	}
+	limiter := redis_rate.NewLimiter(rdb)
+
+	logger := service_logger.InitLogger(cfg.Env)
 	pemBytes, err := base64.StdEncoding.DecodeString(strings.ReplaceAll(cfg.Auth.PublicKeyPEMBase64, "\n", ""))
 	if err != nil {
 		log.Fatalf("error decoding public pem %v", err)
@@ -67,6 +80,7 @@ func InitComponents(ctx context.Context, cfg *Config) *Components {
 		Logger:       logger,
 		TokenManager: manager,
 		Postgres:     pool,
+		Limiter:      limiter,
 	}
 }
 

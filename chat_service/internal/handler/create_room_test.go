@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"chat_service/internal/domain"
+	"chat_service/internal/service"
 
 	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
@@ -14,49 +15,54 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var (
+	dbError  = errors.New("db down")
+	aliceID  = "aliceid"
+	bobID    = "bobid"
+	roomID   = "roomid"
+	roomName = "room-1"
+)
+
 func Test_CreateRoom(t *testing.T) {
-	aliceID := "aliceid"
-	roomName := "room-1"
 	room := &domain.Room{
-		ID:   "room1",
+		ID:   roomID,
 		Name: roomName,
 	}
-	dbError := errors.New("db down")
 
 	tests := []struct {
 		name       string
 		body       string
-		setup      func(h *hubMock)
+		setup      func(h *service.MockHub)
 		wantStatus int
 		wantErr    bool
 	}{
 		{
 			name: "success",
 			body: fmt.Sprintf(`{"name": "%s"}`, roomName),
-			setup: func(h *hubMock) {
-				h.On("CreateRoom", mock.Anything, roomName, aliceID).Return(room, nil)
+			setup: func(h *service.MockHub) {
+				h.EXPECT().CreateRoom(mock.Anything, roomName, aliceID).Return(room, nil)
 			},
 			wantStatus: http.StatusCreated,
 		},
 		{
 			name:       "invalidReqBody",
 			body:       "{bad}",
-			setup:      func(h *hubMock) {},
+			setup:      func(h *service.MockHub) {},
 			wantStatus: http.StatusBadRequest,
 			wantErr:    true,
 		},
 		{
 			name:       "invalid room name",
 			body:       fmt.Sprintf(`{"name": "%s"}`, ""),
-			setup:      func(h *hubMock) {},
+			setup:      func(h *service.MockHub) {},
 			wantStatus: http.StatusBadRequest,
 			wantErr:    true,
 		},
 		{
 			name: "internal server error",
 			body: fmt.Sprintf(`{"name": "%s"}`, roomName),
-			setup: func(h *hubMock) {
-				h.On("CreateRoom", mock.Anything, roomName, aliceID).Return((*domain.Room)(nil), dbError)
+			setup: func(h *service.MockHub) {
+				h.EXPECT().CreateRoom(mock.Anything, roomName, aliceID).Return((*domain.Room)(nil), dbError)
 			},
 			wantStatus: http.StatusInternalServerError,
 			wantErr:    true,
@@ -65,7 +71,7 @@ func Test_CreateRoom(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &hubMock{}
+			svc := service.NewMockHub(t)
 
 			tt.setup(svc)
 
@@ -81,7 +87,6 @@ func Test_CreateRoom(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, res.Code, tt.wantStatus)
 			}
-			svc.AssertExpectations(t)
 		})
 	}
 }

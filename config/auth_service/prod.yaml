@@ -8,3 +8,11 @@ http:
 
 auth:
   access_token_ttl: 30m
+
+redis:
+  addrs:
+    - redis-prod:6379
+
+limits:
+  register_limit: 10
+  login_limit: 10

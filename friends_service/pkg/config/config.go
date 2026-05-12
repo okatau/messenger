@@ -12,6 +12,7 @@ import (
 
 type HTTPConfig struct {
 	Port            int           `yaml:"port" env-required:"true"`
+	GRPCPort        int           `yaml:"grpc_port" env-default:"50051"`
 	ReadTimeout     time.Duration `yaml:"read_timeout" env-default:"10s"`
 	WriteTimeout    time.Duration `yaml:"write_timeout" env-default:"10s"`
 	ShutdownTimeout time.Duration `yaml:"shutdown_timeout" env-default:"10s"`
@@ -30,6 +31,13 @@ type PostgresConfig struct {
 	User     string `env:"USER" env-required:"true"`
 	Password string `env:"PASSWORD" env-required:"true"`
 	DBName   string `env:"DBNAME" env-required:"true"`
+}
+
+type AuthConfig struct {
+	AccessTokenTTL      time.Duration `yaml:"access_token_ttl" env-default:"15m"`
+	RefreshTokenTTL     time.Duration `yaml:"refresh_token_ttl" env-default:"720h"` // 30 days
+	PublicKeyPEMBase64  string        `env:"AUTH_PUBLIC_PEM_BASE64" env-required:"true"`
+	PrivateKeyPEMBase64 string        `env:"AUTH_PRIVATE_PEM_BASE64"`
 }
 
 func Load[T any]() *T {

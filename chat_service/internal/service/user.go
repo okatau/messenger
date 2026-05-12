@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"chat_service/internal/domain"
-	loggerPkg "chat_service/pkg/logger"
+	"chat_service/pkg/service_logger"
 
 	ws "github.com/gorilla/websocket"
 )
@@ -109,7 +109,7 @@ func (u *user) listenWrite() {
 		case msg := <-u.outgoingMsg:
 			if err := u.conn.WriteJSON(msg); err != nil {
 				u.closeOnce.Do(func() { close(u.doneCh) })
-				logger.Info("write error user", slog.String("userID", u.id), loggerPkg.Err(err))
+				logger.Info("write error user", slog.String("userID", u.id), service_logger.Err(err))
 			}
 		}
 	}
@@ -139,7 +139,7 @@ func (u *user) listenRead(ctx context.Context) {
 			err := u.conn.ReadJSON(&msg)
 			if err != nil {
 				u.closeOnce.Do(func() { close(u.doneCh) })
-				logger.Info("read error user", slog.String("userID", u.id), loggerPkg.Err(err))
+				logger.Info("read error user", slog.String("userID", u.id), service_logger.Err(err))
 				return
 			} else {
 				u.mu.RLock()

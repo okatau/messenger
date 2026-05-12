@@ -1,10 +1,9 @@
 package service
 
 import (
-	"context"
 	"errors"
 	"friends_service/internal/domain"
-	"friends_service/internal/repository"
+	"friends_service/internal/mocks"
 	"log/slog"
 	"testing"
 
@@ -13,53 +12,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type friendshipRepoMock struct{ mock.Mock }
-type userRepoMock struct{ mock.Mock }
+var (
+	alice   = "alice"
+	bob     = "bob"
+	dbError = errors.New("db down")
+)
 
-func (fr *friendshipRepoMock) GetFriends(ctx context.Context, userID string) ([]*domain.User, error) {
-	args := fr.Called(ctx, userID)
-	return args.Get(0).([]*domain.User), args.Error(1)
-}
-
-func (fr *friendshipRepoMock) AddFriend(ctx context.Context, inviterID, inviteeID string) error {
-	args := fr.Called(ctx, inviterID, inviteeID)
-	return args.Error(0)
-}
-
-func (fr *friendshipRepoMock) AcceptFriend(ctx context.Context, userID, inviterID string) (bool, error) {
-	args := fr.Called(ctx, userID, inviterID)
-	return args.Get(0).(bool), args.Error(1)
-}
-
-func (fr *friendshipRepoMock) DeclineFriend(ctx context.Context, userID, inviterID string) (bool, error) {
-	args := fr.Called(ctx, userID, inviterID)
-	return args.Get(0).(bool), args.Error(1)
-}
-
-func (fr *friendshipRepoMock) CancelFriend(ctx context.Context, userID, inviterID string) (bool, error) {
-	args := fr.Called(ctx, userID, inviterID)
-	return args.Get(0).(bool), args.Error(1)
-}
-
-func (fr *friendshipRepoMock) RemoveFriend(ctx context.Context, userID, friendID string) (bool, error) {
-	args := fr.Called(ctx, userID, friendID)
-	return args.Get(0).(bool), args.Error(1)
-}
-
-func (ur *userRepoMock) UserExists(ctx context.Context, userID string) (bool, error) {
-	args := ur.Called(ctx, userID)
-	return args.Get(0).(bool), args.Error(1)
-}
-
-func (ur *userRepoMock) GetUsersByUsername(ctx context.Context, name, cursor string) ([]*domain.User, error) {
-	args := ur.Called(ctx, name, cursor)
-	return args.Get(0).([]*domain.User), args.Error(1)
-}
-
-var _ repository.FriendshipRepository = (*friendshipRepoMock)(nil)
-var _ repository.UserRepository = (*userRepoMock)(nil)
-
-func setupSvc(t *testing.T, uRepo *userRepoMock, fRepo *friendshipRepoMock) Friendship {
+func setupSvc(t *testing.T, uRepo *mocks.MockUserRepository, fRepo *mocks.MockFriendshipRepository) Friendship {
 	t.Helper()
 	svc := NewFriendshipService(uRepo, fRepo, slog.Default())
 
@@ -67,24 +26,21 @@ func setupSvc(t *testing.T, uRepo *userRepoMock, fRepo *friendshipRepoMock) Frie
 }
 
 func Test_SendFriendRequest(t *testing.T) {
-	alice := "alice"
-	bob := "bob"
-	dbError := errors.New("db down")
 
 	tests := []struct {
 		name    string
 		inviter string
 		invitee string
-		setup   func(ur *userRepoMock, fr *friendshipRepoMock)
+		setup   func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository)
 		wantErr error
 	}{
 		{
 			name:    "success",
 			inviter: alice,
 			invitee: bob,
-			setup: func(ur *userRepoMock, fr *friendshipRepoMock) {
-				ur.On("UserExists", mock.Anything, bob).Return(true, nil)
-				fr.On("AddFriend", mock.Anything, alice, bob).Return(nil)
+			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
+				ur.EXPECT().UserExists(mock.Anything, bob).Return(true, nil)
+				fr.EXPECT().AddFriend(mock.Anything, alice, bob).Return(nil)
 			},
 		},
 		{
@@ -97,8 +53,8 @@ func Test_SendFriendRequest(t *testing.T) {
 			name:    "db error 1",
 			inviter: alice,
 			invitee: bob,
-			setup: func(ur *userRepoMock, fr *friendshipRepoMock) {
-				ur.On("UserExists", mock.Anything, bob).Return(false, dbError)
+			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
+				ur.EXPECT().UserExists(mock.Anything, bob).Return(false, dbError)
 			},
 			wantErr: dbError,
 		},
@@ -106,8 +62,8 @@ func Test_SendFriendRequest(t *testing.T) {
 			name:    "user does not exists",
 			inviter: alice,
 			invitee: bob,
-			setup: func(ur *userRepoMock, fr *friendshipRepoMock) {
-				ur.On("UserExists", mock.Anything, bob).Return(false, nil)
+			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
+				ur.EXPECT().UserExists(mock.Anything, bob).Return(false, nil)
 			},
 			wantErr: domain.ErrUserInvalidInvitee,
 		},
@@ -115,9 +71,9 @@ func Test_SendFriendRequest(t *testing.T) {
 			name:    "db error 2",
 			inviter: alice,
 			invitee: bob,
-			setup: func(ur *userRepoMock, fr *friendshipRepoMock) {
-				ur.On("UserExists", mock.Anything, bob).Return(true, nil)
-				fr.On("AddFriend", mock.Anything, alice, bob).Return(dbError)
+			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
+				ur.EXPECT().UserExists(mock.Anything, bob).Return(true, nil)
+				fr.EXPECT().AddFriend(mock.Anything, alice, bob).Return(dbError)
 			},
 			wantErr: dbError,
 		},
@@ -125,8 +81,8 @@ func Test_SendFriendRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uRepo := &userRepoMock{}
-			fRepo := &friendshipRepoMock{}
+			uRepo := mocks.NewMockUserRepository(t)
+			fRepo := mocks.NewMockFriendshipRepository(t)
 
 			if tt.setup != nil {
 				tt.setup(uRepo, fRepo)
@@ -141,39 +97,32 @@ func Test_SendFriendRequest(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 			}
-
-			uRepo.AssertExpectations(t)
-			fRepo.AssertExpectations(t)
 		})
 	}
 }
 
 func Test_AcceptFriendRequest(t *testing.T) {
-	alice := "alice"
-	bob := "bob"
-	dbError := errors.New("db down")
-
 	tests := []struct {
 		name    string
 		user    string
 		inviter string
-		setup   func(ur *userRepoMock, fr *friendshipRepoMock)
+		setup   func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository)
 		wantErr error
 	}{
 		{
 			name:    "success",
 			user:    alice,
 			inviter: bob,
-			setup: func(ur *userRepoMock, fr *friendshipRepoMock) {
-				fr.On("AcceptFriend", mock.Anything, alice, bob).Return(true, nil)
+			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
+				fr.EXPECT().AcceptFriend(mock.Anything, alice, bob).Return(true, nil)
 			},
 		},
 		{
 			name:    "db error",
 			user:    alice,
 			inviter: bob,
-			setup: func(ur *userRepoMock, fr *friendshipRepoMock) {
-				fr.On("AcceptFriend", mock.Anything, alice, bob).Return(false, dbError)
+			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
+				fr.EXPECT().AcceptFriend(mock.Anything, alice, bob).Return(false, dbError)
 			},
 			wantErr: dbError,
 		},
@@ -181,8 +130,8 @@ func Test_AcceptFriendRequest(t *testing.T) {
 			name:    "friend request not found",
 			user:    alice,
 			inviter: bob,
-			setup: func(ur *userRepoMock, fr *friendshipRepoMock) {
-				fr.On("AcceptFriend", mock.Anything, alice, bob).Return(false, nil)
+			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
+				fr.EXPECT().AcceptFriend(mock.Anything, alice, bob).Return(false, nil)
 			},
 			wantErr: domain.ErrFriendReqNotFound,
 		},
@@ -190,8 +139,8 @@ func Test_AcceptFriendRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uRepo := &userRepoMock{}
-			fRepo := &friendshipRepoMock{}
+			uRepo := mocks.NewMockUserRepository(t)
+			fRepo := mocks.NewMockFriendshipRepository(t)
 
 			if tt.setup != nil {
 				tt.setup(uRepo, fRepo)
@@ -206,39 +155,32 @@ func Test_AcceptFriendRequest(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 			}
-
-			uRepo.AssertExpectations(t)
-			fRepo.AssertExpectations(t)
 		})
 	}
 }
 
 func Test_DeclineFriendRequest(t *testing.T) {
-	alice := "alice"
-	bob := "bob"
-	dbError := errors.New("db down")
-
 	tests := []struct {
 		name    string
 		user    string
 		inviter string
-		setup   func(ur *userRepoMock, fr *friendshipRepoMock)
+		setup   func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository)
 		wantErr error
 	}{
 		{
 			name:    "success",
 			user:    alice,
 			inviter: bob,
-			setup: func(ur *userRepoMock, fr *friendshipRepoMock) {
-				fr.On("DeclineFriend", mock.Anything, alice, bob).Return(true, nil)
+			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
+				fr.EXPECT().DeclineFriend(mock.Anything, alice, bob).Return(true, nil)
 			},
 		},
 		{
 			name:    "db error",
 			user:    alice,
 			inviter: bob,
-			setup: func(ur *userRepoMock, fr *friendshipRepoMock) {
-				fr.On("DeclineFriend", mock.Anything, alice, bob).Return(false, dbError)
+			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
+				fr.EXPECT().DeclineFriend(mock.Anything, alice, bob).Return(false, dbError)
 			},
 			wantErr: dbError,
 		},
@@ -246,8 +188,8 @@ func Test_DeclineFriendRequest(t *testing.T) {
 			name:    "friend request not found",
 			user:    alice,
 			inviter: bob,
-			setup: func(ur *userRepoMock, fr *friendshipRepoMock) {
-				fr.On("DeclineFriend", mock.Anything, alice, bob).Return(false, nil)
+			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
+				fr.EXPECT().DeclineFriend(mock.Anything, alice, bob).Return(false, nil)
 			},
 			wantErr: domain.ErrFriendReqNotFound,
 		},
@@ -255,8 +197,8 @@ func Test_DeclineFriendRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uRepo := &userRepoMock{}
-			fRepo := &friendshipRepoMock{}
+			uRepo := mocks.NewMockUserRepository(t)
+			fRepo := mocks.NewMockFriendshipRepository(t)
 
 			if tt.setup != nil {
 				tt.setup(uRepo, fRepo)
@@ -271,39 +213,32 @@ func Test_DeclineFriendRequest(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 			}
-
-			uRepo.AssertExpectations(t)
-			fRepo.AssertExpectations(t)
 		})
 	}
 }
 
 func Test_CancelFriendRequest(t *testing.T) {
-	alice := "alice"
-	bob := "bob"
-	dbError := errors.New("db down")
-
 	tests := []struct {
 		name    string
 		user    string
 		invitee string
-		setup   func(ur *userRepoMock, fr *friendshipRepoMock)
+		setup   func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository)
 		wantErr error
 	}{
 		{
 			name:    "success",
 			user:    alice,
 			invitee: bob,
-			setup: func(ur *userRepoMock, fr *friendshipRepoMock) {
-				fr.On("CancelFriend", mock.Anything, alice, bob).Return(true, nil)
+			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
+				fr.EXPECT().CancelFriend(mock.Anything, alice, bob).Return(true, nil)
 			},
 		},
 		{
 			name:    "db error",
 			user:    alice,
 			invitee: bob,
-			setup: func(ur *userRepoMock, fr *friendshipRepoMock) {
-				fr.On("CancelFriend", mock.Anything, alice, bob).Return(false, dbError)
+			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
+				fr.EXPECT().CancelFriend(mock.Anything, alice, bob).Return(false, dbError)
 			},
 			wantErr: dbError,
 		},
@@ -311,8 +246,8 @@ func Test_CancelFriendRequest(t *testing.T) {
 			name:    "friend request not found",
 			user:    alice,
 			invitee: bob,
-			setup: func(ur *userRepoMock, fr *friendshipRepoMock) {
-				fr.On("CancelFriend", mock.Anything, alice, bob).Return(false, nil)
+			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
+				fr.EXPECT().CancelFriend(mock.Anything, alice, bob).Return(false, nil)
 			},
 			wantErr: domain.ErrFriendReqNotFound,
 		},
@@ -320,8 +255,8 @@ func Test_CancelFriendRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uRepo := &userRepoMock{}
-			fRepo := &friendshipRepoMock{}
+			uRepo := mocks.NewMockUserRepository(t)
+			fRepo := mocks.NewMockFriendshipRepository(t)
 
 			if tt.setup != nil {
 				tt.setup(uRepo, fRepo)
@@ -336,39 +271,32 @@ func Test_CancelFriendRequest(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 			}
-
-			uRepo.AssertExpectations(t)
-			fRepo.AssertExpectations(t)
 		})
 	}
 }
 
 func Test_RemoveFriend(t *testing.T) {
-	alice := "alice"
-	bob := "bob"
-	dbError := errors.New("db down")
-
 	tests := []struct {
 		name    string
 		user    string
 		invitee string
-		setup   func(ur *userRepoMock, fr *friendshipRepoMock)
+		setup   func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository)
 		wantErr error
 	}{
 		{
 			name:    "success",
 			user:    alice,
 			invitee: bob,
-			setup: func(ur *userRepoMock, fr *friendshipRepoMock) {
-				fr.On("RemoveFriend", mock.Anything, alice, bob).Return(true, nil)
+			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
+				fr.EXPECT().RemoveFriend(mock.Anything, alice, bob).Return(true, nil)
 			},
 		},
 		{
 			name:    "db error",
 			user:    alice,
 			invitee: bob,
-			setup: func(ur *userRepoMock, fr *friendshipRepoMock) {
-				fr.On("RemoveFriend", mock.Anything, alice, bob).Return(false, dbError)
+			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
+				fr.EXPECT().RemoveFriend(mock.Anything, alice, bob).Return(false, dbError)
 			},
 			wantErr: dbError,
 		},
@@ -376,8 +304,8 @@ func Test_RemoveFriend(t *testing.T) {
 			name:    "friend request not found",
 			user:    alice,
 			invitee: bob,
-			setup: func(ur *userRepoMock, fr *friendshipRepoMock) {
-				fr.On("RemoveFriend", mock.Anything, alice, bob).Return(false, nil)
+			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
+				fr.EXPECT().RemoveFriend(mock.Anything, alice, bob).Return(false, nil)
 			},
 			wantErr: domain.ErrFriendNotFound,
 		},
@@ -385,8 +313,8 @@ func Test_RemoveFriend(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uRepo := &userRepoMock{}
-			fRepo := &friendshipRepoMock{}
+			uRepo := mocks.NewMockUserRepository(t)
+			fRepo := mocks.NewMockFriendshipRepository(t)
 
 			if tt.setup != nil {
 				tt.setup(uRepo, fRepo)
@@ -401,9 +329,6 @@ func Test_RemoveFriend(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 			}
-
-			uRepo.AssertExpectations(t)
-			fRepo.AssertExpectations(t)
 		})
 	}
 }

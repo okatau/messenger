@@ -2,11 +2,12 @@ package handler
 
 import (
 	"encoding/json"
-	"errors"
+	"fmt"
 	"net/http"
 	"testing"
 
 	"chat_service/internal/domain"
+	"chat_service/internal/service"
 
 	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
@@ -15,11 +16,6 @@ import (
 )
 
 func Test_InviteUser(t *testing.T) {
-	aliceID := "aliceid"
-	bobID := "bobid"
-	roomID := "roomid"
-	dbError := errors.New("db down")
-
 	getBody := func(userID string) string {
 		body, _ := json.Marshal(
 			struct {
@@ -34,15 +30,16 @@ func Test_InviteUser(t *testing.T) {
 	tests := []struct {
 		name       string
 		body       string
-		setup      func(h *hubMock, c *echo.Context)
+		setup      func(h *service.MockHub, c *echo.Context)
 		wantStatus int
 		wantErr    bool
 	}{
 		{
 			name: "success",
 			body: getBody(bobID),
-			setup: func(h *hubMock, c *echo.Context) {
-				h.On("InviteUser", mock.Anything, aliceID, bobID, roomID).Return(nil)
+			setup: func(h *service.MockHub, c *echo.Context) {
+				h.EXPECT().InviteUser(mock.Anything, aliceID, bobID, roomID).Return(nil)
+
 				c.SetPathValues(echo.PathValues{{Name: "roomId", Value: roomID}})
 			},
 			wantStatus: http.StatusNoContent,
@@ -50,7 +47,7 @@ func Test_InviteUser(t *testing.T) {
 		{
 			name: "invalid req body",
 			body: `{"bad"}`,
-			setup: func(h *hubMock, c *echo.Context) {
+			setup: func(h *service.MockHub, c *echo.Context) {
 				c.SetPathValues(echo.PathValues{{Name: "roomId", Value: roomID}})
 			},
 			wantStatus: http.StatusBadRequest,
@@ -59,7 +56,7 @@ func Test_InviteUser(t *testing.T) {
 		{
 			name: "invalid room id",
 			body: getBody(bobID),
-			setup: func(h *hubMock, c *echo.Context) {
+			setup: func(h *service.MockHub, c *echo.Context) {
 			},
 			wantStatus: http.StatusBadRequest,
 			wantErr:    true,
@@ -67,7 +64,7 @@ func Test_InviteUser(t *testing.T) {
 		{
 			name: "invalid userId",
 			body: getBody(""),
-			setup: func(h *hubMock, c *echo.Context) {
+			setup: func(h *service.MockHub, c *echo.Context) {
 				c.SetPathValues(echo.PathValues{{Name: "roomId", Value: roomID}})
 			},
 			wantStatus: http.StatusBadRequest,
@@ -76,8 +73,8 @@ func Test_InviteUser(t *testing.T) {
 		{
 			name: "forbidden",
 			body: getBody(bobID),
-			setup: func(h *hubMock, c *echo.Context) {
-				h.On("InviteUser", mock.Anything, aliceID, bobID, roomID).Return(domain.ErrUserForbidden)
+			setup: func(h *service.MockHub, c *echo.Context) {
+				h.EXPECT().InviteUser(mock.Anything, aliceID, bobID, roomID).Return(domain.ErrUserForbidden)
 				c.SetPathValues(echo.PathValues{{Name: "roomId", Value: roomID}})
 			},
 			wantStatus: http.StatusForbidden,
@@ -86,8 +83,8 @@ func Test_InviteUser(t *testing.T) {
 		{
 			name: "internal server error",
 			body: getBody(bobID),
-			setup: func(h *hubMock, c *echo.Context) {
-				h.On("InviteUser", mock.Anything, aliceID, bobID, roomID).Return(dbError)
+			setup: func(h *service.MockHub, c *echo.Context) {
+				h.EXPECT().InviteUser(mock.Anything, aliceID, bobID, roomID).Return(dbError)
 				c.SetPathValues(echo.PathValues{{Name: "roomId", Value: roomID}})
 			},
 			wantStatus: http.StatusInternalServerError,
@@ -97,7 +94,7 @@ func Test_InviteUser(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &hubMock{}
+			svc := service.NewMockHub(t)
 			_, c, rec := newContext(http.MethodPost, "/rooms/", tt.body)
 			c.Set("userID", aliceID)
 
@@ -110,10 +107,10 @@ func Test_InviteUser(t *testing.T) {
 				require.ErrorAs(t, err, &echoError)
 				assert.Equal(t, tt.wantStatus, echoError.Code)
 			} else {
+				fmt.Println("aaaaaaaaaaaaaaa", err, rec.Code)
 				require.NoError(t, err)
 				assert.Equal(t, tt.wantStatus, rec.Code)
 			}
-			svc.AssertExpectations(t)
 		})
 	}
 }

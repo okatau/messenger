@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"friends_service/internal/domain"
+	"friends_service/internal/mocks"
 	"net/http"
 	"testing"
 
@@ -18,22 +19,22 @@ func Test_Handler_SearchUser(t *testing.T) {
 	tests := []struct {
 		name       string
 		query      string
-		setup      func(svc *friendshipSvcMock)
+		setup      func(svc *mocks.MockFriendship)
 		wantStatus int
 	}{
 		{
 			name:  "success",
 			query: "?username=bob",
-			setup: func(svc *friendshipSvcMock) {
-				svc.On("FindMatchingUsers", mock.Anything, "bob", "").Return(users, nil)
+			setup: func(svc *mocks.MockFriendship) {
+				svc.EXPECT().SearchUser(mock.Anything, "bob", "").Return(users, nil)
 			},
 			wantStatus: http.StatusOK,
 		},
 		{
 			name:  "with cursor",
 			query: "?username=bob&cursor=abc",
-			setup: func(svc *friendshipSvcMock) {
-				svc.On("FindMatchingUsers", mock.Anything, "bob", "abc").Return(users, nil)
+			setup: func(svc *mocks.MockFriendship) {
+				svc.EXPECT().SearchUser(mock.Anything, "bob", "abc").Return(users, nil)
 			},
 			wantStatus: http.StatusOK,
 		},
@@ -45,8 +46,8 @@ func Test_Handler_SearchUser(t *testing.T) {
 		{
 			name:  "internal error",
 			query: "?username=bob",
-			setup: func(svc *friendshipSvcMock) {
-				svc.On("FindMatchingUsers", mock.Anything, "bob", "").Return([]*domain.User{}, dbError)
+			setup: func(svc *mocks.MockFriendship) {
+				svc.EXPECT().SearchUser(mock.Anything, "bob", "").Return([]*domain.User{}, dbError)
 			},
 			wantStatus: http.StatusInternalServerError,
 		},
@@ -54,7 +55,7 @@ func Test_Handler_SearchUser(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &friendshipSvcMock{}
+			svc := mocks.NewMockFriendship(t)
 			if tt.setup != nil {
 				tt.setup(svc)
 			}
@@ -70,8 +71,6 @@ func Test_Handler_SearchUser(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, tt.wantStatus, rec.Code)
 			}
-
-			svc.AssertExpectations(t)
 		})
 	}
 }

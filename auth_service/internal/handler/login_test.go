@@ -2,11 +2,11 @@ package handler
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"testing"
 
 	"auth_service/internal/domain"
+	"auth_service/internal/handler/mocks"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
@@ -36,44 +36,44 @@ func Test_Login(t *testing.T) {
 	tests := []struct {
 		name       string
 		body       string
-		setup      func(s *mockAuthService)
+		setup      func(s *mocks.MockAuth)
 		wantStatus int
 		wantError  bool
 	}{
 		{
 			name: "success",
 			body: getBody(email, password),
-			setup: func(s *mockAuthService) {
-				s.On("Login", mock.Anything, email, password).Return(&AuthSession, nil)
+			setup: func(s *mocks.MockAuth) {
+				s.EXPECT().Login(mock.Anything, email, password).Return(&AuthSession, nil)
 			},
 			wantStatus: http.StatusOK,
 		},
 		{
 			name:       "invalid request body",
 			body:       "{bad}",
-			setup:      func(s *mockAuthService) {},
+			setup:      func(s *mocks.MockAuth) {},
 			wantStatus: http.StatusBadRequest,
 			wantError:  true,
 		},
 		{
 			name:       "invalid email",
 			body:       getBody("", password),
-			setup:      func(s *mockAuthService) {},
+			setup:      func(s *mocks.MockAuth) {},
 			wantStatus: http.StatusBadRequest,
 			wantError:  true,
 		},
 		{
 			name:       "invalid password",
 			body:       getBody(email, ""),
-			setup:      func(s *mockAuthService) {},
+			setup:      func(s *mocks.MockAuth) {},
 			wantStatus: http.StatusBadRequest,
 			wantError:  true,
 		},
 		{
 			name: "internal server error",
 			body: getBody(email, password),
-			setup: func(s *mockAuthService) {
-				s.On("Login", mock.Anything, email, password).Return((*domain.AuthSession)(nil), errors.New("db down"))
+			setup: func(s *mocks.MockAuth) {
+				s.EXPECT().Login(mock.Anything, email, password).Return((*domain.AuthSession)(nil), dbError)
 			},
 			wantStatus: http.StatusInternalServerError,
 			wantError:  true,
@@ -82,7 +82,7 @@ func Test_Login(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &mockAuthService{}
+			svc := mocks.NewMockAuth(t)
 			tt.setup(svc)
 
 			_, c, rec := newContext(http.MethodPost, "/login", tt.body)
@@ -100,7 +100,6 @@ func Test_Login(t *testing.T) {
 				require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 				assert.Contains(t, resp, "access_token")
 			}
-			svc.AssertExpectations(t)
 		})
 	}
 }

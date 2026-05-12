@@ -1,0 +1,21 @@
+formatter: goimports
+filename: "mock_{{.InterfaceName | snakecase}}.go"
+
+packages:
+  friends_service/internal/service:
+    interfaces:
+      Friendship:
+        config:
+          dir: internal/mocks
+          pkgname: mocks
+
+  friends_service/internal/repository:
+    interfaces:
+      FriendshipRepository:
+        config:
+          dir: internal/mocks
+          pkgname: mocks
+      UserRepository:
+        config:
+          dir: internal/mocks
+          pkgname: mocks

@@ -5,6 +5,8 @@ import (
 	"chat_service/internal/handler"
 	"chat_service/internal/middleware"
 	"chat_service/pkg/config"
+	"chat_service/pkg/service_logger"
+	"chat_service/pkg/service_rate_limiter"
 	"context"
 	"fmt"
 	"log"
@@ -27,21 +29,24 @@ func main() {
 	ctxTimeout, cancelTimeout := context.WithTimeout(ctx, cfg.ServerConfig.ShutdownTimeout)
 	defer cancelTimeout()
 
-	components := components.InitComponents(ctxTimeout, hubCtx, cfg)
+	comps := components.InitComponents(ctxTimeout, hubCtx, cfg)
 
-	auth := middleware.Auth(components.TokenManager)
+	auth := middleware.Auth(comps.TokenManager)
+	rl := func(limitRate int) echo.MiddlewareFunc {
+		return service_rate_limiter.RateLimitByUser(comps.Limiter, comps.Logger, limitRate)
+	}
 
 	router := echo.New()
-	router.Use(middleware.Logger(components.Logger))
+	router.Use(service_logger.LoggerMW(comps.Logger))
 
-	router.GET("/wss", handler.Connect(components.Hub, components.TokenManager, hubCtx))
+	router.GET("/wss", handler.Connect(comps.Hub, comps.TokenManager, hubCtx, cfg.OriginWhitelist))
 
-	router.GET("", handler.GetRoom(components.Hub), auth)
-	router.GET("/:roomId/active", handler.GetActiveUsersByRoom(components.Hub), auth)
-	router.GET("/:roomId/messages", handler.GetRoomHistory(components.Hub), auth)
-	router.POST("", handler.CreateRoom(components.Hub), auth)
-	router.POST("/:roomId/invite", handler.InviteUser(components.Hub), auth)
-	router.POST("/:roomId/leave", handler.LeaveRoom(components.Hub), auth)
+	router.GET("", handler.GetRoom(comps.Hub), auth)
+	router.GET("/:roomId/users", handler.GetUsersByRoom(comps.Hub), auth)
+	router.GET("/:roomId/messages", handler.GetRoomHistory(comps.Hub), auth, rl(cfg.Limits.MessagesLimit))
+	router.POST("", handler.CreateRoom(comps.Hub), auth, rl(cfg.Limits.CreateRoomLimit))
+	router.POST("/:roomId/invite", handler.InviteUser(comps.Hub), auth, rl(cfg.Limits.InviteLimit))
+	router.POST("/:roomId/leave", handler.LeaveRoom(comps.Hub), auth)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
@@ -54,8 +59,10 @@ func main() {
 		// WriteTimeout: cfg.ServerConfig.WriteTimeout,
 	}
 
+	comps.Logger.Info(fmt.Sprintf("Running on %s environment", cfg.Env))
+
 	go func() {
-		components.Logger.Info(fmt.Sprintf("listening chat service on %d", cfg.ServerConfig.Port))
+		comps.Logger.Info(fmt.Sprintf("listening chat service on %d", cfg.ServerConfig.Port))
 		if err := serv.ListenAndServe(); err != nil {
 			log.Printf("server stopped: %v", err)
 		}
@@ -66,5 +73,5 @@ func main() {
 	defer shutdownCancel()
 
 	serv.Shutdown(shutdownCtx)
-	components.Shutdown(shutdownCtx)
+	comps.Shutdown(shutdownCtx)
 }

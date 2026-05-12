@@ -7,7 +7,7 @@ import (
 
 	"auth_service/internal/domain"
 	"auth_service/internal/repository"
-	loggerPkg "auth_service/pkg/logger"
+	"auth_service/pkg/service_logger"
 	"auth_service/pkg/token_manager"
 
 	"golang.org/x/crypto/bcrypt"
@@ -50,7 +50,7 @@ func (a *auth) Register(ctx context.Context, name, email, password string) (*dom
 
 	existing, err := a.userRepo.GetUserByEmail(ctx, email)
 	if err != nil {
-		logger.Error("error reading db", loggerPkg.Err(err))
+		logger.Error("error reading db", service_logger.Err(err))
 		return nil, err
 	}
 	if existing != nil {
@@ -59,13 +59,13 @@ func (a *auth) Register(ctx context.Context, name, email, password string) (*dom
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		logger.Error("error encrypting password", loggerPkg.Err(err))
+		logger.Error("error encrypting password", service_logger.Err(err))
 		return nil, err
 	}
 
 	user, err := a.userRepo.CreateUser(ctx, name, email, string(hash))
 	if err != nil {
-		logger.Error("error add user to db", loggerPkg.Err(err))
+		logger.Error("error add user to db", service_logger.Err(err))
 		return nil, err
 	}
 
@@ -78,7 +78,7 @@ func (a *auth) Login(ctx context.Context, email, password string) (*domain.AuthS
 
 	user, err := a.userRepo.GetUserByEmail(ctx, email)
 	if err != nil {
-		logger.Error("error reading db", loggerPkg.Err(err))
+		logger.Error("error reading db", service_logger.Err(err))
 		return nil, err
 	}
 	if user == nil {
@@ -91,13 +91,13 @@ func (a *auth) Login(ctx context.Context, email, password string) (*domain.AuthS
 
 	_, err = a.sessionRepo.DeleteSessionsByUserID(ctx, user.ID)
 	if err != nil {
-		logger.Error("error deleting session", loggerPkg.Err(err))
+		logger.Error("error deleting session", service_logger.Err(err))
 		return nil, err
 	}
 
 	pair, err := a.generateAndSaveTokens(ctx, user.ID, user.Username)
 	if err != nil {
-		logger.Error("error generating tokens", loggerPkg.Err(err))
+		logger.Error("error generating tokens", service_logger.Err(err))
 		return nil, err
 	}
 
@@ -115,7 +115,7 @@ func (a *auth) Refresh(ctx context.Context, token string) (*domain.AuthSession, 
 
 	session, err := a.sessionRepo.GetSessionByToken(ctx, token)
 	if err != nil {
-		logger.Error("error reading db", loggerPkg.Err(err))
+		logger.Error("error reading db", service_logger.Err(err))
 		return nil, err
 	}
 	if session == nil {
@@ -128,13 +128,13 @@ func (a *auth) Refresh(ctx context.Context, token string) (*domain.AuthSession, 
 
 	_, err = a.sessionRepo.DeleteSession(ctx, token)
 	if err != nil {
-		logger.Error("error removing from db", loggerPkg.Err(err))
+		logger.Error("error removing from db", service_logger.Err(err))
 		return nil, err
 	}
 
 	pair, err := a.generateAndSaveTokens(ctx, session.UserID, session.Username)
 	if err != nil {
-		logger.Error("error generating new tokens", loggerPkg.Err(err))
+		logger.Error("error generating new tokens", service_logger.Err(err))
 		return nil, err
 	}
 
@@ -152,7 +152,7 @@ func (a *auth) Logout(ctx context.Context, token string) error {
 
 	session, err := a.sessionRepo.GetSessionByToken(ctx, token)
 	if err != nil {
-		logger.Error("error reading db", loggerPkg.Err(err))
+		logger.Error("error reading db", service_logger.Err(err))
 		return err
 	}
 	if session == nil {

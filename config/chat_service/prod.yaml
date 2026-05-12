@@ -12,3 +12,13 @@ auth:
 redis:
   addrs:
     - redis-prod:6379
+
+origin_whitelist:
+  - "http://localhost:8080"
+
+limits:
+  create_room: 5
+  invite: 10
+  messages: 30
+
+friends_grpc_addr: "friends-prod:50051"

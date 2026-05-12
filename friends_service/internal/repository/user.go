@@ -36,8 +36,8 @@ func (r *userRepo) GetUsersByUsername(ctx context.Context, name, cursor string) 
 	query := `
 		SELECT id, email, name, created_at
 		FROM users
-		WHERE 
-			name ILIKE $1 || '%' AND 
+		WHERE
+			name ILIKE $1 || '%' AND
 			name > $2
 		ORDER BY name
 		LIMIT $3

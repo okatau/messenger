@@ -15,50 +15,9 @@ import (
 
 	ws "github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
-
-type mockRoom struct {
-	id          string
-	broadcastCh chan *domain.Message
-}
-
-func newMockRoom(id string) *mockRoom {
-	return &mockRoom{id: id, broadcastCh: make(chan *domain.Message, 1)}
-}
-
-func (r *mockRoom) ID() string                                     { return r.id }
-func (r *mockRoom) AddUser(_ User) error                           { return nil }
-func (r *mockRoom) RemoveUser(_ User) error                        { return nil }
-func (r *mockRoom) IsEmpty() bool                                  { return false }
-func (r *mockRoom) Broadcast(_ context.Context, m *domain.Message) { r.broadcastCh <- m }
-func (r *mockRoom) Run(_ context.Context)                          {}
-func (r *mockRoom) Stop()                                          {}
-func (r *mockRoom) GetUsernames() []string                         { return nil }
-
-type mockHub struct {
-	mu              sync.Mutex
-	disconnectedIDs []string
-}
-
-func (h *mockHub) Connect(_ context.Context, _ string, _ *ws.Conn) error { return nil }
-func (h *mockHub) Disconnect(_ context.Context, id string) (User, error) {
-	h.mu.Lock()
-	h.disconnectedIDs = append(h.disconnectedIDs, id)
-	h.mu.Unlock()
-	return nil, nil
-}
-func (h *mockHub) InviteUser(_ context.Context, _, _, _ string) error              { return nil }
-func (h *mockHub) LeaveRoom(_ context.Context, _, _ string) error                  { return nil }
-func (h *mockHub) Shutdown(_ context.Context)                                      {}
-func (h *mockHub) CreateRoom(_ context.Context, _, _ string) (*domain.Room, error) { return nil, nil }
-func (h *mockHub) GetRoomClients(_ string) []string                                { return nil }
-func (h *mockHub) GetRoomHistory(_ context.Context, _, _ string, _ time.Time) ([]*domain.Message, error) {
-	return nil, nil
-}
-func (h *mockHub) GetRoomsByUser(_ context.Context, _ string) ([]*domain.Room, error) {
-	return nil, nil
-}
 
 var wsUpgrader = ws.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
 
@@ -99,92 +58,97 @@ func waitDone(t *testing.T, wg *sync.WaitGroup) {
 	}
 }
 
-// ─── тесты геттеров ─────────────────────────────────────────────────────────
-
 func TestUser_ID(t *testing.T) {
-	u := newTestUser("user-1", "alice", nil, &mockHub{})
+	u := newTestUser("user-1", "alice", nil, NewMockHub(t))
 	assert.Equal(t, "user-1", u.ID())
 }
 
 func TestUser_Name(t *testing.T) {
-	u := newTestUser("user-1", "alice", nil, &mockHub{})
+	u := newTestUser("user-1", "alice", nil, NewMockHub(t))
 	assert.Equal(t, "alice", u.Name())
 }
 
-// ─── тесты AddRoom ──────────────────────────────────────────────────────────
-
 func TestUser_AddRoom(t *testing.T) {
-	t.Run("успешное добавление", func(t *testing.T) {
-		u := newTestUser("u1", "alice", nil, &mockHub{})
-		room := newMockRoom("room-1")
+	t.Run("success adding room", func(t *testing.T) {
+		u := newTestUser("u1", "alice", nil, NewMockHub(t))
+
+		room := NewMockRoom(t)
+		roomID := "room-id"
+		room.EXPECT().ID().Return(roomID)
 
 		require.NoError(t, u.AddRoom(room))
 
-		assert.Contains(t, u.Rooms(), "room-1")
+		assert.Contains(t, u.Rooms(), roomID)
 	})
 
-	t.Run("дублирующая комната возвращает ErrRoomExists", func(t *testing.T) {
-		u := newTestUser("u1", "alice", nil, &mockHub{})
-		room := newMockRoom("room-1")
+	t.Run("error adding already existing room", func(t *testing.T) {
+		u := newTestUser("u1", "alice", nil, NewMockHub(t))
+
+		room := NewMockRoom(t)
+		roomID := "room-id"
+		room.EXPECT().ID().Return(roomID)
+
 		require.NoError(t, u.AddRoom(room))
-
 		err := u.AddRoom(room)
-
 		assert.ErrorIs(t, err, domain.ErrRoomExists)
 	})
 }
 
-// ─── тесты DeleteRoom ───────────────────────────────────────────────────────
-
 func TestUser_DeleteRoom(t *testing.T) {
-	t.Run("успешное удаление", func(t *testing.T) {
-		u := newTestUser("u1", "alice", nil, &mockHub{})
-		room := newMockRoom("room-1")
+	t.Run("success", func(t *testing.T) {
+		u := newTestUser("u1", "alice", nil, NewMockHub(t))
+
+		room := NewMockRoom(t)
+		roomID := "room-id"
+		room.EXPECT().ID().Return(roomID)
+
 		require.NoError(t, u.AddRoom(room))
 
 		require.NoError(t, u.DeleteRoom(room))
-
-		assert.NotContains(t, u.Rooms(), "room-1")
+		assert.NotContains(t, u.Rooms(), roomID)
 	})
 
-	t.Run("несуществующая комната возвращает ErrRoomNotFound", func(t *testing.T) {
-		u := newTestUser("u1", "alice", nil, &mockHub{})
+	t.Run("error romm does not exists", func(t *testing.T) {
+		u := newTestUser("u1", "alice", nil, NewMockHub(t))
 
-		err := u.DeleteRoom(newMockRoom("room-1"))
+		room := NewMockRoom(t)
+		roomID := "room-id"
+		room.EXPECT().ID().Return(roomID)
+
+		err := u.DeleteRoom(room)
 
 		assert.ErrorIs(t, err, domain.ErrRoomNotFound)
 	})
 }
 
-// ─── тесты Rooms ────────────────────────────────────────────────────────────
-
 func TestUser_Rooms_ReturnsCopy(t *testing.T) {
-	u := newTestUser("u1", "alice", nil, &mockHub{})
-	require.NoError(t, u.AddRoom(newMockRoom("room-1")))
+	u := newTestUser("u1", "alice", nil, NewMockHub(t))
+
+	room := NewMockRoom(t)
+	roomID := "room-id"
+	room.EXPECT().ID().Return(roomID)
+
+	require.NoError(t, u.AddRoom(room))
 
 	rooms := u.Rooms()
-	delete(rooms, "room-1") // мутируем копию
+	delete(rooms, roomID)
 
-	// оригинал не должен измениться
-	assert.Contains(t, u.Rooms(), "room-1")
+	assert.Contains(t, u.Rooms(), roomID)
 }
 
-// ─── тесты Write ────────────────────────────────────────────────────────────
-
 func TestUser_Write(t *testing.T) {
-	t.Run("сообщение помещается в буфер", func(t *testing.T) {
-		u := newTestUser("u1", "alice", nil, &mockHub{})
+	t.Run("write message to outgoindMsg", func(t *testing.T) {
+		u := newTestUser("u1", "alice", nil, NewMockHub(t))
 
 		err := u.Write(context.Background(), &domain.Message{Message: "hello"})
 
 		assert.NoError(t, err)
 	})
 
-	t.Run("переполнение буфера возвращает ErrUserDisconnected", func(t *testing.T) {
-		u := newTestUser("u1", "alice", nil, &mockHub{})
+	t.Run("error outgoindMsg overflow", func(t *testing.T) {
+		u := newTestUser("u1", "alice", nil, NewMockHub(t))
 		msg := &domain.Message{Message: "x"}
 
-		// заполняем буфер до упора
 		for i := 0; i < MaxBufSize; i++ {
 			require.NoError(t, u.Write(context.Background(), msg))
 		}
@@ -195,15 +159,18 @@ func TestUser_Write(t *testing.T) {
 	})
 }
 
-// ─── тесты горутин Listen ───────────────────────────────────────────────────
-
 // TestUser_ListenWrite проверяет, что listenWrite доставляет сообщение клиенту.
 func TestUser_ListenWrite_DeliversMsgToClient(t *testing.T) {
 	serverConn, clientConn := newWSPair(t)
-	u := newTestUser("u1", "alice", serverConn, &mockHub{})
 
-	// кладём сообщение в канал до старта горутин
-	msg := &domain.Message{Message: "ping", RoomID: "room-1"}
+	hub := NewMockHub(t)
+	hub.EXPECT().Disconnect(mock.Anything, "u1").Return(nil, nil)
+
+	u := newTestUser("u1", "alice", serverConn, hub)
+
+	roomID := "room-id"
+
+	msg := &domain.Message{Message: "ping", RoomID: roomID}
 	require.NoError(t, u.Write(context.Background(), msg))
 
 	var wg sync.WaitGroup
@@ -214,36 +181,45 @@ func TestUser_ListenWrite_DeliversMsgToClient(t *testing.T) {
 	require.NoError(t, clientConn.ReadJSON(&got))
 
 	assert.Equal(t, "ping", got.Message)
-	assert.Equal(t, "room-1", got.RoomID)
+	assert.Equal(t, roomID, got.RoomID)
 
-	// закрываем клиент → ошибка чтения на сервере → doneCh закрывается → обе горутины выходят
 	clientConn.Close()
 	waitDone(t, &wg)
 }
 
-// TestUser_ListenRead_BroadcastsToRoom проверяет, что listenRead читает сообщение
-// от клиента и вызывает Broadcast нужной комнаты с обогащёнными полями.
 func TestUser_ListenRead_BroadcastsToRoom(t *testing.T) {
 	serverConn, clientConn := newWSPair(t)
-	hub := &mockHub{}
+
+	hub := NewMockHub(t)
+	hub.EXPECT().Disconnect(mock.Anything, "u1").Return(nil, nil)
+
 	u := newTestUser("u1", "alice", serverConn, hub)
 
-	room := newMockRoom("room-1")
+	room := NewMockRoom(t)
+	roomID := "room-id"
+	room.EXPECT().ID().Return(roomID)
+
+	broadcastCh := make(chan *domain.Message, 1)
+	room.EXPECT().Broadcast(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, msg *domain.Message) {
+			broadcastCh <- msg
+		})
+
 	require.NoError(t, u.AddRoom(room))
 
 	var wg sync.WaitGroup
 	u.Listen(context.Background(), &wg)
 
-	outMsg := domain.Message{RoomID: "room-1", Message: "hello from client"}
+	outMsg := domain.Message{RoomID: roomID, Message: "hello from client"}
 	require.NoError(t, clientConn.SetWriteDeadline(time.Now().Add(2*time.Second)))
 	require.NoError(t, clientConn.WriteJSON(outMsg))
 
 	select {
-	case received := <-room.broadcastCh:
+	case received := <-broadcastCh:
 		assert.Equal(t, "hello from client", received.Message)
-		assert.Equal(t, "room-1", received.RoomID)
-		assert.Equal(t, "u1", received.UserID)      // проставляется сервером
-		assert.Equal(t, "alice", received.Username) // проставляется сервером
+		assert.Equal(t, roomID, received.RoomID)
+		assert.Equal(t, "u1", received.UserID)
+		assert.Equal(t, "alice", received.Username)
 		assert.False(t, received.Timestamp.IsZero())
 	case <-time.After(2 * time.Second):
 		t.Fatal("timeout: broadcast was not called")
@@ -257,7 +233,10 @@ func TestUser_ListenRead_BroadcastsToRoom(t *testing.T) {
 // соединения вызывается hub.Disconnect с корректным userID.
 func TestUser_ListenRead_ClosedConnCallsDisconnect(t *testing.T) {
 	serverConn, clientConn := newWSPair(t)
-	hub := &mockHub{}
+
+	hub := NewMockHub(t)
+	hub.EXPECT().Disconnect(mock.Anything, "u1").Return(nil, nil)
+
 	u := newTestUser("u1", "alice", serverConn, hub)
 
 	var wg sync.WaitGroup
@@ -265,8 +244,4 @@ func TestUser_ListenRead_ClosedConnCallsDisconnect(t *testing.T) {
 
 	clientConn.Close()
 	waitDone(t, &wg)
-
-	hub.mu.Lock()
-	defer hub.mu.Unlock()
-	assert.Contains(t, hub.disconnectedIDs, "u1")
 }

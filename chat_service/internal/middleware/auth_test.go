@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"chat_service/pkg/token_manager"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -11,8 +12,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"chat_service/pkg/token_manager"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"

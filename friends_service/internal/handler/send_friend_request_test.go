@@ -1,9 +1,9 @@
 package handler
 
 import (
-	"context"
 	"errors"
 	"friends_service/internal/domain"
+	"friends_service/internal/mocks"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -24,38 +24,6 @@ var (
 	dbError = errors.New("db down")
 )
 
-type friendshipSvcMock struct{ mock.Mock }
-
-func (m *friendshipSvcMock) SendFriendRequest(ctx context.Context, inviterID, inviteeID string) error {
-	return m.Called(ctx, inviterID, inviteeID).Error(0)
-}
-
-func (m *friendshipSvcMock) AcceptFriendRequest(ctx context.Context, userID, inviterID string) error {
-	return m.Called(ctx, userID, inviterID).Error(0)
-}
-
-func (m *friendshipSvcMock) DeclineFriendRequest(ctx context.Context, userID, inviterID string) error {
-	return m.Called(ctx, userID, inviterID).Error(0)
-}
-
-func (m *friendshipSvcMock) CancelFriendRequest(ctx context.Context, userID, inviteeID string) error {
-	return m.Called(ctx, userID, inviteeID).Error(0)
-}
-
-func (m *friendshipSvcMock) RemoveFriend(ctx context.Context, userID, friendID string) error {
-	return m.Called(ctx, userID, friendID).Error(0)
-}
-
-func (m *friendshipSvcMock) GetFriendsList(ctx context.Context, userID string) ([]*domain.User, error) {
-	args := m.Called(ctx, userID)
-	return args.Get(0).([]*domain.User), args.Error(1)
-}
-
-func (m *friendshipSvcMock) FindMatchingUsers(ctx context.Context, username, cursor string) ([]*domain.User, error) {
-	args := m.Called(ctx, username, cursor)
-	return args.Get(0).([]*domain.User), args.Error(1)
-}
-
 func newContext(method, target, body string) (*echo.Context, *httptest.ResponseRecorder) {
 	e := echo.New()
 	var bodyReader *strings.Reader
@@ -75,14 +43,14 @@ func Test_Handler_SendFriendRequest(t *testing.T) {
 	tests := []struct {
 		name       string
 		body       string
-		setup      func(svc *friendshipSvcMock)
+		setup      func(svc *mocks.MockFriendship)
 		wantStatus int
 	}{
 		{
 			name: "success",
 			body: `{"inviteeId":"` + bobID + `"}`,
-			setup: func(svc *friendshipSvcMock) {
-				svc.On("SendFriendRequest", mock.Anything, aliceID, bobID).Return(nil)
+			setup: func(svc *mocks.MockFriendship) {
+				svc.EXPECT().SendFriendRequest(mock.Anything, aliceID, bobID).Return(nil)
 			},
 			wantStatus: http.StatusCreated,
 		},
@@ -99,24 +67,24 @@ func Test_Handler_SendFriendRequest(t *testing.T) {
 		{
 			name: "invalid invitee",
 			body: `{"inviteeId":"` + bobID + `"}`,
-			setup: func(svc *friendshipSvcMock) {
-				svc.On("SendFriendRequest", mock.Anything, aliceID, bobID).Return(domain.ErrUserInvalidInvitee)
+			setup: func(svc *mocks.MockFriendship) {
+				svc.EXPECT().SendFriendRequest(mock.Anything, aliceID, bobID).Return(domain.ErrUserInvalidInvitee)
 			},
 			wantStatus: http.StatusNotFound,
 		},
 		{
 			name: "request already exists",
 			body: `{"inviteeId":"` + bobID + `"}`,
-			setup: func(svc *friendshipSvcMock) {
-				svc.On("SendFriendRequest", mock.Anything, aliceID, bobID).Return(domain.ErrFriendReqAlreadyExists)
+			setup: func(svc *mocks.MockFriendship) {
+				svc.EXPECT().SendFriendRequest(mock.Anything, aliceID, bobID).Return(domain.ErrFriendReqAlreadyExists)
 			},
 			wantStatus: http.StatusBadRequest,
 		},
 		{
 			name: "internal error",
 			body: `{"inviteeId":"` + bobID + `"}`,
-			setup: func(svc *friendshipSvcMock) {
-				svc.On("SendFriendRequest", mock.Anything, aliceID, bobID).Return(dbError)
+			setup: func(svc *mocks.MockFriendship) {
+				svc.EXPECT().SendFriendRequest(mock.Anything, aliceID, bobID).Return(dbError)
 			},
 			wantStatus: http.StatusInternalServerError,
 		},
@@ -124,7 +92,7 @@ func Test_Handler_SendFriendRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &friendshipSvcMock{}
+			svc := mocks.NewMockFriendship(t)
 			if tt.setup != nil {
 				tt.setup(svc)
 			}
@@ -141,8 +109,6 @@ func Test_Handler_SendFriendRequest(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, tt.wantStatus, rec.Code)
 			}
-
-			svc.AssertExpectations(t)
 		})
 	}
 }
