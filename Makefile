@@ -43,10 +43,14 @@ staging-logs:
 	$(COMPOSE_STAGING) $(ENV_FILE_PROD) $(COMPOSE_FLAGS) logs -f
 
 build-prod:
-	docker build -t $(REGISTRY)/auth:$(VERSION)     -t $(REGISTRY)/auth:latest     ./auth_service
-	docker build -t $(REGISTRY)/chat:$(VERSION)     -t $(REGISTRY)/chat:latest     ./chat_service
-	docker build -t $(REGISTRY)/friends:$(VERSION)  -t $(REGISTRY)/friends:latest  ./friends_service
-	docker build -t $(REGISTRY)/frontend:$(VERSION) -t $(REGISTRY)/frontend:latest ./frontend
+	docker buildx build --platform linux/amd64 --load \
+		-t $(REGISTRY)/auth:$(VERSION)     -t $(REGISTRY)/auth:latest     ./auth_service
+	docker buildx build --platform linux/amd64 --load \
+		-t $(REGISTRY)/chat:$(VERSION)     -t $(REGISTRY)/chat:latest     ./chat_service
+	docker buildx build --platform linux/amd64 --load \
+		-t $(REGISTRY)/friends:$(VERSION)  -t $(REGISTRY)/friends:latest  ./friends_service
+	docker buildx build --platform linux/amd64 --load \
+		-t $(REGISTRY)/frontend:$(VERSION) -t $(REGISTRY)/frontend:latest ./frontend
 
 push-prod:
 	docker push $(REGISTRY)/auth:$(VERSION)     && docker push $(REGISTRY)/auth:latest

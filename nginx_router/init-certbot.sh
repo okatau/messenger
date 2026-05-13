@@ -14,22 +14,31 @@ if [ -z "$DOMAIN" ] || [ -z "$CERTBOT_EMAIL" ]; then
 fi
 
 echo "==> Создаём временный self-signed сертификат для $DOMAIN..."
-mkdir -p ./certbot/conf/live/$DOMAIN
-openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
-  -keyout ./certbot/conf/live/$DOMAIN/privkey.pem \
-  -out ./certbot/conf/live/$DOMAIN/fullchain.pem \
-  -subj "/CN=$DOMAIN" 2>/dev/null
+docker compose -f docker-compose.prod.yml --env-file .env.prod run --rm \
+  --entrypoint "" certbot sh -c \
+  "mkdir -p /certdata/live/${DOMAIN} && \
+   openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
+     -keyout /certdata/live/${DOMAIN}/privkey.pem \
+     -out /certdata/live/${DOMAIN}/fullchain.pem \
+     -subj '/CN=${DOMAIN}' 2>/dev/null"
 
 echo "==> Запускаем nginx с временным сертификатом..."
 docker compose -f docker-compose.prod.yml --env-file .env.prod up -d nginx-prod
 sleep 3
 
 echo "==> Удаляем временный сертификат..."
-rm -rf ./certbot/conf/live/$DOMAIN
+docker compose -f docker-compose.prod.yml --env-file .env.prod run --rm \
+  --entrypoint "" certbot sh -c \
+  "rm -rf /certdata/live/${DOMAIN}"
 
 echo "==> Получаем настоящий сертификат Let's Encrypt для $DOMAIN..."
-docker compose -f docker-compose.prod.yml --env-file .env.prod run --rm certbot \
-  certonly --webroot -w /var/www/certbot \
+docker compose -f docker-compose.prod.yml --env-file .env.prod run --rm \
+  --entrypoint "" certbot \
+  certbot certonly --webroot \
+  --config-dir /certdata \
+  --work-dir /certdata/work \
+  --logs-dir /certdata/logs \
+  -w /certdata/www \
   -d $DOMAIN \
   --email $CERTBOT_EMAIL \
   --agree-tos --no-eff-email

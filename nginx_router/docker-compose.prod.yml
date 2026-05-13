@@ -5,11 +5,10 @@ services:
     image: nginx:alpine
     ports:
       - "80:80"
-      - "443:443"
     volumes:
       - ./nginx.prod.conf:/etc/nginx/nginx.conf.template:ro
-      - ./certbot/conf:/etc/letsencrypt:ro
-      - ./certbot/www:/var/www/certbot:ro
+      - certbot-conf:/certdata:ro
+      - certbot-www:/certdata/www:ro
       - /dev/shm:/dev/shm
     command: >
       /bin/sh -c "envsubst '$$DOMAIN' < /etc/nginx/nginx.conf.template
@@ -26,11 +25,12 @@ services:
   certbot:
     image: certbot/certbot
     volumes:
-      - ./certbot/conf:/etc/letsencrypt
-      - ./certbot/www:/var/www/certbot
-    entrypoint: >
-      /bin/sh -c "trap exit TERM;
-      while :; do certbot renew --quiet; sleep 12h & wait $${!}; done"
+      - certbot-conf:/certdata
+      - certbot-www:/certdata/www
+    entrypoint:
+      - /bin/sh
+      - -c
+      - "trap exit TERM; while :; do certbot renew --quiet --config-dir /certdata --work-dir /certdata/work --logs-dir /certdata/logs; sleep 12h & wait $${!}; done"
 
   frontend-prod:
     container_name: frontend-prod
@@ -191,6 +191,8 @@ services:
 volumes:
   pg-data:
   redis-data:
+  certbot-conf:
+  certbot-www:
 
 networks:
   frontend:

@@ -2,7 +2,7 @@
 
 Бэкенд мессенджера на Go, реализованный как набор микросервисов.
 
-Потестить сервис можно тут [messenger-pet.mooo.com](https://messenger-pet.mooo.com/)
+Потестить сервис можно тут [messenger.kabakov-timofei.ru](https://messenger.kabakov-timofei.ru/)
 
 Cейчас реализовано:
   * **Регистрация.** При регистрации информация о пользователе добавляется в [бд](/migrations/001_users.up.sql), 
