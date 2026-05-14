@@ -3,6 +3,7 @@ package main
 import (
 	"chat_service/internal/components"
 	"chat_service/internal/handler"
+	"chat_service/internal/middleware"
 	"chat_service/pkg/config"
 	"chat_service/pkg/service_logger"
 	"context"
@@ -34,12 +35,14 @@ func main() {
 
 	router.GET("/wss", handler.Connect(comps.Hub, comps.TokenManager, hubCtx, cfg.OriginWhitelist))
 
-	router.GET("", handler.GetRoom(comps.Hub))
-	router.GET("/:roomId/users", handler.GetUsersByRoom(comps.Hub))
-	router.GET("/:roomId/messages", handler.GetRoomHistory(comps.Hub))
-	router.POST("", handler.CreateRoom(comps.Hub))
-	router.POST("/:roomId/invite", handler.InviteUser(comps.Hub))
-	router.POST("/:roomId/leave", handler.LeaveRoom(comps.Hub))
+	authMW := middleware.ExtractUserID()
+
+	router.GET("", handler.GetRoom(comps.Hub), authMW)
+	router.GET("/:roomId/users", handler.GetUsersByRoom(comps.Hub), authMW)
+	router.GET("/:roomId/messages", handler.GetRoomHistory(comps.Hub), authMW)
+	router.POST("", handler.CreateRoom(comps.Hub), authMW)
+	router.POST("/:roomId/invite", handler.InviteUser(comps.Hub), authMW)
+	router.POST("/:roomId/leave", handler.LeaveRoom(comps.Hub), authMW)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

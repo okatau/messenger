@@ -7,6 +7,7 @@ import (
 	"friends_service/internal/components"
 	"friends_service/internal/handler"
 	grpcHandler "friends_service/internal/handler/grpc"
+	"friends_service/internal/middleware"
 	"friends_service/pkg/config"
 	"friends_service/pkg/service_logger"
 	"log"
@@ -39,6 +40,7 @@ func main() {
 	router := echo.New()
 
 	router.Use(loggerMW)
+	router.Use(middleware.ExtractUserID())
 
 	router.GET("", handler.GetFriendsList(comps.Svc))
 	router.GET("/search", handler.SearchUser(comps.Svc))

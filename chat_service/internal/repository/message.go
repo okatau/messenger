@@ -68,8 +68,8 @@ func (r *messageRepo) GetMessagesBefore(ctx context.Context, roomID string, befo
 	key := cacheKey(roomID)
 	cached, err := r.rdb.ZRangeArgs(ctx, redis.ZRangeArgs{
 		Key:     key,
-		Start:   fmt.Sprintf("(%d", before.Unix()),
-		Stop:    "-inf",
+		Start:   "-inf",
+		Stop:    fmt.Sprintf("(%d", before.Unix()),
 		ByScore: true,
 		Rev:     true,
 		Count:   cacheSize,

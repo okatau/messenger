@@ -10,12 +10,14 @@ import (
 
 func redirectTo(proxy *httputil.ReverseProxy) echo.HandlerFunc {
 	return func(c *echo.Context) error {
+		if userID, ok := c.Get("userID").(string); ok && userID != "" {
+			c.Request().Header.Set("X-User-ID", userID)
+		}
 		proxy.ServeHTTP(c.Response(), c.Request())
 		return nil
 	}
 }
 
-// targetUrl http://auth-service:8081
 func InitAuthEndpoints(
 	auth *echo.Group,
 	targetUrl string,
