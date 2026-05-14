@@ -31,6 +31,23 @@ const AuthContextProvider = ({ children }: { children: React.ReactNode }) => {
 
   const router = useRouter()
   const hasRun = useRef(false)
+  const refreshTokenRef = useRef('')
+
+  const doRefresh = async (refreshToken: string): Promise<UserInfo> => {
+    const res = await fetch('/api/auth/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    })
+    if (!res.ok) throw new Error('refresh failed')
+    const data = await res.json()
+    return {
+      username: data.username,
+      id: data.user_id,
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+    }
+  }
 
   useEffect(() => {
     if (hasRun.current) return
@@ -49,23 +66,10 @@ const AuthContextProvider = ({ children }: { children: React.ReactNode }) => {
     } else {
       const storedUser: UserInfo = JSON.parse(userInfo)
 
-      fetch('/api/auth/refresh', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: storedUser.refresh_token }),
-      })
-        .then((res) => {
-          if (!res.ok) throw new Error('refresh failed')
-          return res.json()
-        })
-        .then((data) => {
-          const refreshedUser: UserInfo = {
-            username: data.username,
-            id: data.user_id,
-            access_token: data.access_token,
-            refresh_token: data.refresh_token,
-          }
+      doRefresh(storedUser.refresh_token)
+        .then((refreshedUser) => {
           localStorage.setItem('user_info', JSON.stringify(refreshedUser))
+          refreshTokenRef.current = refreshedUser.refresh_token
           setUser(refreshedUser)
           setAuthenticated(true)
           setIsReady(true)
@@ -76,6 +80,32 @@ const AuthContextProvider = ({ children }: { children: React.ReactNode }) => {
         })
     }
   }, [])
+
+  // Keep refreshTokenRef in sync when user is set externally (e.g. after login)
+  useEffect(() => {
+    if (user.refresh_token) {
+      refreshTokenRef.current = user.refresh_token
+    }
+  }, [user.refresh_token])
+
+  // Proactively refresh the access token every 14 minutes (TTL is 15m)
+  useEffect(() => {
+    if (!isReady) return
+
+    const interval = setInterval(async () => {
+      try {
+        const refreshedUser = await doRefresh(refreshTokenRef.current)
+        localStorage.setItem('user_info', JSON.stringify(refreshedUser))
+        refreshTokenRef.current = refreshedUser.refresh_token
+        setUser(refreshedUser)
+      } catch {
+        localStorage.removeItem('user_info')
+        router.push('/user/login')
+      }
+    }, 14 * 60 * 1000)
+
+    return () => clearInterval(interval)
+  }, [isReady])
 
   return (
     <AuthContext.Provider

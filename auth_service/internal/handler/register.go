@@ -45,7 +45,7 @@ func Register(auth service.Auth) echo.HandlerFunc {
 		if err != nil {
 			switch {
 			case errors.Is(err, domain.ErrUserExists):
-				echo.NewHTTPError(http.StatusUnauthorized, "user forbidden")
+				return echo.NewHTTPError(http.StatusConflict, "user already exists")
 			default:
 				return echo.NewHTTPError(http.StatusInternalServerError, "server internal error")
 			}

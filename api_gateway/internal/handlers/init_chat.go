@@ -42,6 +42,8 @@ func InitChatEndpoints(
 		log.Fatal(err)
 	}
 
+	chat.Use(auth)
+
 	chat.GET("", redirectTo(proxy), auth)
 	chat.GET("/:roomId/users", redirectTo(proxy), auth)
 	chat.GET("/:roomId/messages", redirectTo(proxy), auth, rl(cl.MessagesLimit))

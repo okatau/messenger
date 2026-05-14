@@ -43,20 +43,23 @@ staging-logs:
 	$(COMPOSE_STAGING) $(ENV_FILE_PROD) $(COMPOSE_FLAGS) logs -f
 
 build-prod:
-	docker buildx build --platform linux/amd64 --load \
+	docker buildx build --platform linux/amd64,linux/arm64 --load \
 		-t $(REGISTRY)/auth:$(VERSION)     -t $(REGISTRY)/auth:latest     ./auth_service
-	docker buildx build --platform linux/amd64 --load \
+	docker buildx build --platform linux/amd64,linux/arm64 --load \
 		-t $(REGISTRY)/chat:$(VERSION)     -t $(REGISTRY)/chat:latest     ./chat_service
-	docker buildx build --platform linux/amd64 --load \
+	docker buildx build --platform linux/amd64,linux/arm64 --load \
 		-t $(REGISTRY)/friends:$(VERSION)  -t $(REGISTRY)/friends:latest  ./friends_service
-	docker buildx build --platform linux/amd64 --load \
+	docker buildx build --platform linux/amd64,linux/arm64 --load \
 		-t $(REGISTRY)/frontend:$(VERSION) -t $(REGISTRY)/frontend:latest ./frontend
+	docker buildx build --platform linux/amd64,linux/arm64 --load \
+		-t $(REGISTRY)/api-gateway:$(VERSION) -t $(REGISTRY)/api-gateway:latest ./api_gateway
 
 push-prod:
 	docker push $(REGISTRY)/auth:$(VERSION)     && docker push $(REGISTRY)/auth:latest
 	docker push $(REGISTRY)/chat:$(VERSION)     && docker push $(REGISTRY)/chat:latest
 	docker push $(REGISTRY)/friends:$(VERSION)  && docker push $(REGISTRY)/friends:latest
 	docker push $(REGISTRY)/frontend:$(VERSION) && docker push $(REGISTRY)/frontend:latest
+	docker push $(REGISTRY)/api-gateway:$(VERSION) && docker push $(REGISTRY)/api-gateway:latest
 
 release-prod: build-prod push-prod
 

@@ -34,27 +34,23 @@ services:
     volumes:
       - ./nginx.local.conf:/etc/nginx/nginx.conf
     depends_on:
-      - nodejs-local
+      - frontend-local
       - api-gateway-local
       - chat-local
 
-  nodejs-local:
-    container_name: nodejs-local
-    user: "root"
+  frontend-local:
+    container_name: frontend-local
     restart: always
     build:
       context: ../frontend
       dockerfile: Dockerfile
-      args: {}
-    volumes:
-      - ../frontend:/app
-      - /app/node_modules
     ports:
       - "3000:3000"
     environment:
       NEXT_PUBLIC_API_URL: "http://localhost:8080"
       NEXT_PUBLIC_WEBSOCKET_URL: "ws://localhost:8080/api/v1/rooms"
       API_INTERNAL_URL: "http://nginx-local"
+      NODE_ENV: production
 
   pg-local:
     container_name: pg-local

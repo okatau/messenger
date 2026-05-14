@@ -19,6 +19,6 @@ limits:
   friends_search: 20
   friends_add: 10
 
-auth_addr: "http://auth-local:8081"
-chat_addr: "http://chat-local:8082"
-friends_addr: "http://friends-local:8083"
+auth_addr: "http://auth-prod:8081"
+chat_addr: "http://chat-prod:8082"
+friends_addr: "http://friends-prod:8083"

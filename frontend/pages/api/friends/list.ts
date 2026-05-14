@@ -6,7 +6,7 @@ export default async function handlerGetFriends(req: NextApiRequest, res: NextAp
         return res.status(405).end()
     }
 
-    const response = await fetch(`${API_URL}/api/v1/friends/`, {
+    const response = await fetch(`${API_URL}/api/v1/friends`, {
         method: 'GET',
         headers: {
             'Authorization': req.headers.authorization ?? '',

@@ -20,7 +20,7 @@ func InitFriendsEndpoints(
 	}
 	friends.Use(auth)
 
-	friends.GET("", redirectTo(proxy))
+	friends.GET("", redirectTo(proxy)) // TODO rename list?
 	friends.GET("/search", redirectTo(proxy), rl(fl.SearchLimit))
 	friends.GET("/invites", redirectTo(proxy), rl(fl.SearchLimit))
 	friends.GET("/search/friend", redirectTo(proxy), rl(fl.SearchLimit))
