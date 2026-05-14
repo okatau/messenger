@@ -10,9 +10,8 @@ services:
       DOMAIN: ""
     depends_on:
       - frontend-prod
-      - auth-prod
+      - api-gateway-prod
       - chat-prod
-      - friends-prod
 
   certbot:
     profiles: [disabled]

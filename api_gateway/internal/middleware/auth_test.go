@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"auth_service/pkg/token_manager"
+	"api_gateway/pkg/token_manager"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"

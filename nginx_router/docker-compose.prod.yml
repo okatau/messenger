@@ -17,9 +17,8 @@ services:
       DOMAIN: "${DOMAIN}"
     depends_on:
       - frontend-prod
-      - auth-prod
+      - api-gateway-prod
       - chat-prod
-      - friends-prod
     networks: [frontend]
 
   certbot:
@@ -91,6 +90,29 @@ services:
       retries: 10
     networks: [backend]
 
+  api-gateway-prod:
+    container_name: api-gateway
+    restart: always
+    image: "${REGISTRY}/api-gateway:latest"
+    environment:
+      APP_ENV_FILE: /etc/api-gateway/.env.prod
+      APP_CONFIG_FILE: /etc/api-gateway/prod.yaml
+    expose:
+      - "7777"
+    volumes:
+      - ../config/api_gateway/prod.yaml:/etc/api-gateway/prod.yaml
+      - ./.env.prod:/etc/api-gateway/.env.prod
+    depends_on:
+      auth-prod:
+        condition: service_started
+      chat-prod:
+        condition: service_started
+      friends-prod:
+        condition: service_started
+      redis-prod:
+        condition: service_healthy
+    networks: [frontend, backend]
+
   auth-prod:
     container_name: auth-prod
     restart: always
@@ -99,29 +121,29 @@ services:
       APP_ENV_FILE: /etc/auth_service/.env.prod
       APP_CONFIG_FILE: /etc/auth_service/prod.yaml
 
-      ENV: ${ENV}
+      # ENV: ${ENV}
 
-      PG_HOST: ${PG_HOST}
-      PG_PORT: ${PG_PORT}
-      PG_DBNAME: ${PG_DBNAME}
-      PG_USER: ${PG_USER}
-      PG_PASSWORD: "${PG_PASSWORD}"
+      # PG_HOST: ${PG_HOST}
+      # PG_PORT: ${PG_PORT}
+      # PG_DBNAME: ${PG_DBNAME}
+      # PG_USER: ${PG_USER}
+      # PG_PASSWORD: "${PG_PASSWORD}"
 
-      REDIS_PASSWORD: "${REDIS_PASSWORD}"
+      # REDIS_PASSWORD: "${REDIS_PASSWORD}"
 
-      AUTH_PUBLIC_PEM_BASE64: ${AUTH_PUBLIC_PEM_BASE64}
-      AUTH_PRIVATE_PEM_BASE64: ${AUTH_PRIVATE_PEM_BASE64}
+      # AUTH_PUBLIC_PEM_BASE64: ${AUTH_PUBLIC_PEM_BASE64}
+      # AUTH_PRIVATE_PEM_BASE64: ${AUTH_PRIVATE_PEM_BASE64}
     expose:
       - "8081"
     volumes:
-      - ../config/auth_service:/etc/auth_service
-      # - ./.env.prod:/etc/auth_service/.env.prod:ro
+      - ../config/auth_service/prod.yaml:/etc/auth_service/prod.yaml
+      - ./.env.prod:/etc/auth_service/.env.prod
     depends_on:
       migrate:
         condition: service_completed_successfully
       redis-prod:
         condition: service_healthy
-    networks: [frontend, backend]
+    networks: [backend]
 
   chat-prod:
     container_name: chat-prod
@@ -131,23 +153,23 @@ services:
       APP_ENV_FILE: /etc/chat_service/.env.prod
       APP_CONFIG_FILE: /etc/chat_service/prod.yaml
 
-      ENV: ${ENV}
+      # ENV: ${ENV}
 
-      PG_HOST: ${PG_HOST}
-      PG_PORT: ${PG_PORT}
-      PG_DBNAME: ${PG_DBNAME}
-      PG_USER: ${PG_USER}
-      PG_PASSWORD: "${PG_PASSWORD}"
+      # PG_HOST: ${PG_HOST}
+      # PG_PORT: ${PG_PORT}
+      # PG_DBNAME: ${PG_DBNAME}
+      # PG_USER: ${PG_USER}
+      # PG_PASSWORD: "${PG_PASSWORD}"
 
-      REDIS_PASSWORD: "${REDIS_PASSWORD}"
+      # REDIS_PASSWORD: "${REDIS_PASSWORD}"
 
-      AUTH_PUBLIC_PEM_BASE64: ${AUTH_PUBLIC_PEM_BASE64}
+      # AUTH_PUBLIC_PEM_BASE64: ${AUTH_PUBLIC_PEM_BASE64}
       # AUTH_PRIVATE_PEM_BASE64: ${AUTH_PRIVATE_PEM_BASE64}
     expose:
       - "8082"
     volumes:
-      - ../config/chat_service:/etc/chat_service
-      # - ./.env.prod:/etc/chat_service/.env.prod:ro
+      - ../config/chat_service/prod.yaml:/etc/chat_service/prod.yaml
+      - ./.env.prod:/etc/chat_service/.env.prod
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -165,28 +187,28 @@ services:
       APP_ENV_FILE: /etc/friends_service/.env.prod
       APP_CONFIG_FILE: /etc/friends_service/prod.yaml
 
-      ENV: ${ENV}
+      # ENV: ${ENV}
 
-      PG_HOST: ${PG_HOST}
-      PG_PORT: ${PG_PORT}
-      PG_DBNAME: ${PG_DBNAME}
-      PG_USER: ${PG_USER}
-      PG_PASSWORD: "${PG_PASSWORD}"
+      # PG_HOST: ${PG_HOST}
+      # PG_PORT: ${PG_PORT}
+      # PG_DBNAME: ${PG_DBNAME}
+      # PG_USER: ${PG_USER}
+      # PG_PASSWORD: "${PG_PASSWORD}"
 
-      REDIS_PASSWORD: "${REDIS_PASSWORD}"
+      # REDIS_PASSWORD: "${REDIS_PASSWORD}"
 
-      AUTH_PUBLIC_PEM_BASE64: ${AUTH_PUBLIC_PEM_BASE64}
+      # AUTH_PUBLIC_PEM_BASE64: ${AUTH_PUBLIC_PEM_BASE64}
       # AUTH_PRIVATE_PEM_BASE64: ${AUTH_PRIVATE_PEM_BASE64}
     expose:
       - "8083"
       - "50051"
     volumes:
-      - ../config/friends_service:/etc/friends_service
-      # - ./.env.prod:/etc/friends_service/.env.prod:ro
+      - ../config/friends_service/prod.yaml:/etc/friends_service/prod.yaml
+      - ./.env.prod:/etc/friends_service/.env.prod
     depends_on:
       migrate:
         condition: service_completed_successfully
-    networks: [frontend, backend]
+    networks: [backend]
 
 volumes:
   pg-data:

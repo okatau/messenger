@@ -1,7 +1,8 @@
-package service_rate_limiter
+package rate_limiter
 
 import (
 	"log/slog"
+	"net"
 	"net/http"
 
 	"github.com/go-redis/redis_rate/v10"
@@ -14,7 +15,11 @@ func RateLimitByIP(limiter *redis_rate.Limiter, logger *slog.Logger, limitRate i
 		return func(c *echo.Context) error {
 			logger := logger.With(slog.String("mw", "rate_limiter"))
 
-			ip := c.Request().RemoteAddr
+			// ip := c.Request().RemoteAddr
+			ip := c.Request().Header.Get("X-Real-IP")
+			if ip == "" {
+				ip, _, _ = net.SplitHostPort(c.Request().RemoteAddr)
+			}
 			key := ip + ":" + c.Request().URL.Path
 
 			res, err := limiter.Allow(c.Request().Context(), key, limit)
@@ -38,8 +43,8 @@ func RateLimitByUser(limiter *redis_rate.Limiter, logger *slog.Logger, limitRate
 		return func(c *echo.Context) error {
 			logger := logger.With(slog.String("mw", "rate_limiter"))
 
-			ip := c.Request().RemoteAddr
-			key := c.Get("userID").(string) + ":" + c.Request().URL.Path
+			userID := c.Get("userID").(string)
+			key := userID + ":" + c.Path()
 
 			res, err := limiter.Allow(c.Request().Context(), key, limit)
 			if err != nil {
@@ -47,7 +52,7 @@ func RateLimitByUser(limiter *redis_rate.Limiter, logger *slog.Logger, limitRate
 				return echo.NewHTTPError(http.StatusInternalServerError, "error getting limits")
 			}
 			if res.Allowed == 0 {
-				logger.Warn("rate limit exceeded", slog.String("ip", ip))
+				logger.Warn("rate limit exceeded", slog.String("userID", userID))
 				return echo.NewHTTPError(http.StatusTooManyRequests, "request limit exceeded")
 			}
 

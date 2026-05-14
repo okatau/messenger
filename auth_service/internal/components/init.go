@@ -15,21 +15,13 @@ import (
 
 	"github.com/go-redis/redis_rate/v10"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/redis/go-redis/v9"
 )
 
 type Config struct {
 	Env          string                `env:"ENV" env-default:"local"`
 	Postgres     config.PostgresConfig `env-prefix:"PG_"`
-	Redis        config.RedisConfig
 	Auth         config.AuthConfig
 	ServerConfig config.HTTPConfig `yaml:"http"`
-	RateLimits   Limits            `yaml:"limits"`
-}
-
-type Limits struct {
-	RegisterLimit int `yaml:"register_limit" env-default:"10"`
-	LoginLimit    int `yaml:"login_limit" env-default:"5"`
 }
 
 type Components struct {
@@ -50,15 +42,6 @@ func InitComponents(ctx context.Context, cfg *Config) *Components {
 	if err = pool.Ping(ctx); err != nil {
 		log.Fatal(err)
 	}
-
-	rdb := redis.NewUniversalClient(&redis.UniversalOptions{
-		Addrs:    cfg.Redis.Addrs,
-		Password: cfg.Redis.Password,
-	})
-	if err = rdb.Ping(ctx).Err(); err != nil {
-		log.Fatalf("redis ping failed: %v", err)
-	}
-	limiter := redis_rate.NewLimiter(rdb)
 
 	logger := service_logger.InitLogger(cfg.Env)
 
@@ -82,7 +65,6 @@ func InitComponents(ctx context.Context, cfg *Config) *Components {
 
 	return &Components{
 		Postgres:     pool,
-		Limiter:      limiter,
 		Svc:          svc,
 		TokenManager: manager,
 		Logger:       logger,

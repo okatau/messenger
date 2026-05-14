@@ -6,17 +6,9 @@ http:
   write_timeout: 10s
   shutdown_timeout: 10s
 
-auth:
-  access_token_ttl: 30m
-
 redis:
   addrs:
     - redis-local:6379
-
-limits:
-  create_room: 5
-  invite: 10
-  messages: 30
 
 origin_whitelist:
   - "http://localhost:3000"

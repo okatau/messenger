@@ -14,7 +14,6 @@ import (
 	"chat_service/pkg/service_logger"
 	"chat_service/pkg/token_manager"
 
-	"github.com/go-redis/redis_rate/v10"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
@@ -27,15 +26,8 @@ type Config struct {
 	Redis              config.RedisConfig
 	Auth               config.AuthConfig
 	ServerConfig       config.HTTPConfig `yaml:"http"`
-	Limits             RateLimiter       `yaml:"limits"`
 	OriginWhitelist    []string          `yaml:"origin_whitelist"`
 	FriendsGRPCAddress string            `yaml:"friends_grpc_addr" env:"FRIENDS_GRPC_ADDR" env-required:"true"`
-}
-
-type RateLimiter struct {
-	CreateRoomLimit int `yaml:"create_room" env-default:"5"`
-	InviteLimit     int `yaml:"invite" env-default:"10"`
-	MessagesLimit   int `yaml:"messages" env-default:"30"`
 }
 
 type Components struct {
@@ -44,7 +36,6 @@ type Components struct {
 	Hub          service.Hub
 	TokenManager *token_manager.TokenManager
 	Logger       *slog.Logger
-	Limiter      *redis_rate.Limiter
 	grpcConn     *grpc.ClientConn
 }
 
@@ -66,8 +57,6 @@ func InitComponents(ctx context.Context, hubCtx context.Context, cfg *Config) *C
 	if err = rdb.Ping(ctx).Err(); err != nil {
 		log.Fatalf("redis ping failed: %v", err)
 	}
-
-	limiter := redis_rate.NewLimiter(rdb)
 
 	logger := service_logger.InitLogger(cfg.Env)
 
@@ -103,7 +92,6 @@ func InitComponents(ctx context.Context, hubCtx context.Context, cfg *Config) *C
 		Hub:          hub,
 		TokenManager: manager,
 		Logger:       logger,
-		Limiter:      limiter,
 		grpcConn:     conn,
 	}
 }

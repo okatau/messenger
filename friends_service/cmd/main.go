@@ -7,10 +7,8 @@ import (
 	"friends_service/internal/components"
 	"friends_service/internal/handler"
 	grpcHandler "friends_service/internal/handler/grpc"
-	"friends_service/internal/middleware"
 	"friends_service/pkg/config"
 	"friends_service/pkg/service_logger"
-	"friends_service/pkg/service_rate_limiter"
 	"log"
 	"net"
 	"net/http"
@@ -36,22 +34,18 @@ func main() {
 
 	comps := components.InitComponents(initCtx, cfg)
 
-	auth := middleware.Auth(comps.TokenManager)
 	loggerMW := service_logger.LoggerMW(comps.Logger)
-	rl := func(limitRate int) echo.MiddlewareFunc {
-		return service_rate_limiter.RateLimitByUser(comps.Limiter, comps.Logger, limitRate)
-	}
 
 	router := echo.New()
-	router.Use(auth)
+
 	router.Use(loggerMW)
 
 	router.GET("", handler.GetFriendsList(comps.Svc))
-	router.GET("/search", handler.SearchUser(comps.Svc), rl(cfg.Limits.SearchLimit))
-	router.GET("/invites", handler.GetInvites(comps.Svc), rl(cfg.Limits.SearchLimit))
-	router.GET("/search/friend", handler.SearchFriend(comps.Svc), rl(cfg.Limits.SearchLimit))
+	router.GET("/search", handler.SearchUser(comps.Svc))
+	router.GET("/invites", handler.GetInvites(comps.Svc))
+	router.GET("/search/friend", handler.SearchFriend(comps.Svc))
 
-	router.POST("/add", handler.SendFriendRequest(comps.Svc), rl(cfg.Limits.AddLimit))
+	router.POST("/add", handler.SendFriendRequest(comps.Svc))
 	router.POST("/accept", handler.AcceptFriendRequest(comps.Svc))
 	router.POST("/decline", handler.DeclineFriendRequest(comps.Svc))
 	router.POST("/cancel", handler.CancelFriendRequest(comps.Svc)) // no use for now

@@ -3,10 +3,8 @@ package main
 import (
 	"chat_service/internal/components"
 	"chat_service/internal/handler"
-	"chat_service/internal/middleware"
 	"chat_service/pkg/config"
 	"chat_service/pkg/service_logger"
-	"chat_service/pkg/service_rate_limiter"
 	"context"
 	"fmt"
 	"log"
@@ -31,22 +29,17 @@ func main() {
 
 	comps := components.InitComponents(ctxTimeout, hubCtx, cfg)
 
-	auth := middleware.Auth(comps.TokenManager)
-	rl := func(limitRate int) echo.MiddlewareFunc {
-		return service_rate_limiter.RateLimitByUser(comps.Limiter, comps.Logger, limitRate)
-	}
-
 	router := echo.New()
 	router.Use(service_logger.LoggerMW(comps.Logger))
 
 	router.GET("/wss", handler.Connect(comps.Hub, comps.TokenManager, hubCtx, cfg.OriginWhitelist))
 
-	router.GET("", handler.GetRoom(comps.Hub), auth)
-	router.GET("/:roomId/users", handler.GetUsersByRoom(comps.Hub), auth)
-	router.GET("/:roomId/messages", handler.GetRoomHistory(comps.Hub), auth, rl(cfg.Limits.MessagesLimit))
-	router.POST("", handler.CreateRoom(comps.Hub), auth, rl(cfg.Limits.CreateRoomLimit))
-	router.POST("/:roomId/invite", handler.InviteUser(comps.Hub), auth, rl(cfg.Limits.InviteLimit))
-	router.POST("/:roomId/leave", handler.LeaveRoom(comps.Hub), auth)
+	router.GET("", handler.GetRoom(comps.Hub))
+	router.GET("/:roomId/users", handler.GetUsersByRoom(comps.Hub))
+	router.GET("/:roomId/messages", handler.GetRoomHistory(comps.Hub))
+	router.POST("", handler.CreateRoom(comps.Hub))
+	router.POST("/:roomId/invite", handler.InviteUser(comps.Hub))
+	router.POST("/:roomId/leave", handler.LeaveRoom(comps.Hub))
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

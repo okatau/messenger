@@ -1,7 +1,6 @@
 package token_manager
 
 import (
-	"auth_service/pkg/service_logger"
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/hex"
@@ -83,12 +82,17 @@ func (m *TokenManager) VerifyAccessToken(tokenStr string) (*jwt.RegisteredClaims
 		return m.publicKey, nil
 	})
 	if err != nil {
-		logger.Error("error parse with claims", service_logger.Err(err))
+		logger.Error(
+			"error parse with claims",
+			slog.Attr{
+				Key:   "error",
+				Value: slog.StringValue(err.Error()),
+			})
 		return nil, err
 	}
 	claims, ok := token.Claims.(*jwt.RegisteredClaims)
 	if !ok {
-		logger.Error("error parse token", service_logger.Err(err))
+		logger.Error("error parse token")
 		return nil, jwt.ErrSignatureInvalid
 	}
 	return claims, nil

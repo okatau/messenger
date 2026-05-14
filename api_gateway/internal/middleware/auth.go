@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"auth_service/pkg/token_manager"
+	"api_gateway/pkg/token_manager"
 	"net/http"
 	"strings"
 

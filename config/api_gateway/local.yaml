@@ -1,0 +1,24 @@
+env: local
+
+http:
+  port: 7777
+  read_timeout: 10s
+  write_timeout: 10s
+  shutdown_timeout: 10s
+
+redis:
+  addrs:
+    - redis-local:6379
+
+limits:
+  auth_register_limit: 10
+  auth_login_limit: 10
+  chat_create_room: 5
+  chat_invite: 10
+  chat_messages: 30
+  friends_search: 20
+  friends_add: 10
+
+auth_addr: "http://auth-local:8081"
+chat_addr: "http://chat-local:8082"
+friends_addr: "http://friends-local:8083"

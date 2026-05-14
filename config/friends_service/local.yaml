@@ -11,9 +11,6 @@ redis:
   addrs:
     - redis-local:6379
 
-auth:
-  access_token_ttl: 30m
-
 limits:
   search: 20
   add: 10
