@@ -8,6 +8,7 @@ import (
 	"log/slog"
 
 	"chat_service/internal/clients"
+	"chat_service/internal/pubsub"
 	"chat_service/internal/repository"
 	"chat_service/internal/service"
 	"chat_service/pkg/config"
@@ -73,6 +74,7 @@ func InitComponents(ctx context.Context, hubCtx context.Context, cfg *Config) *C
 	roomRepo := repository.NewRoomRepository(pool)
 	userRepo := repository.NewUserRepository(pool)
 	msgRepo := repository.NewMessageRepository(pool, rdb)
+	ps := pubsub.NewPubSub(rdb)
 
 	conn, err := grpc.NewClient(
 		cfg.FriendsGRPCAddress,
@@ -84,7 +86,7 @@ func InitComponents(ctx context.Context, hubCtx context.Context, cfg *Config) *C
 
 	friendsClient := clients.NewFriendshipClient(conn)
 
-	hub := service.NewHub(hubCtx, userRepo, roomRepo, msgRepo, logger, friendsClient)
+	hub := service.NewHub(hubCtx, userRepo, roomRepo, msgRepo, logger, friendsClient, ps)
 
 	return &Components{
 		Postgres:     pool,

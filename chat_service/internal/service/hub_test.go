@@ -18,6 +18,17 @@ var (
 	dbError = errors.New("db down")
 )
 
+// newNopPubSub returns a PubSub mock whose Subscribe may be called any number of times.
+// Hub tests exercise hub logic, not message routing, so rooms can run with a silent channel.
+func newNopPubSub(t *testing.T) *mocks.MockPubSub {
+	t.Helper()
+	ps := mocks.NewMockPubSub(t)
+	ps.EXPECT().Subscribe(mock.Anything, mock.Anything).
+		Return(make(chan *domain.Message, 1), func() {}).
+		Maybe()
+	return ps
+}
+
 func newHub(
 	t *testing.T,
 	userRepo *mocks.MockUserRepository,
@@ -26,7 +37,7 @@ func newHub(
 	friendsClient *mocks.MockFriendshipClient,
 ) Hub {
 	t.Helper()
-	return NewHub(t.Context(), userRepo, roomRepo, msgRepo, slog.Default(), friendsClient)
+	return NewHub(t.Context(), userRepo, roomRepo, msgRepo, slog.Default(), friendsClient, newNopPubSub(t))
 }
 
 func connectUser(t *testing.T, h Hub, uRepo *mocks.MockUserRepository, rRepo *mocks.MockRoomRepository, userID, userName string, rooms []*domain.Room) {
@@ -103,7 +114,7 @@ func Test_Hub_Connect(t *testing.T) {
 			err := h.Connect(t.Context(), userID_1, clientConn)
 
 			if tt.wantError != nil {
-				assert.Error(t, err)
+				assert.ErrorIs(t, err, tt.wantError)
 			} else {
 				require.NoError(t, err)
 			}
@@ -119,11 +130,7 @@ func Test_Hub_Disconnect(t *testing.T) {
 		fClientMock := mocks.NewMockFriendshipClient(t)
 
 		h := newHub(t, uRepo, rRepo, mRepo, fClientMock)
-
-		room := NewMockRoom(t)
-		room.EXPECT().ID().Return(roomID_1)
-
-		connectUser(t, h, uRepo, rRepo, userID_1, username_1, []*domain.Room{{ID: room.ID()}})
+		connectUser(t, h, uRepo, rRepo, userID_1, username_1, []*domain.Room{{ID: roomID_1}})
 
 		_, err := h.Disconnect(t.Context(), userID_1)
 		require.NoError(t, err)
@@ -149,18 +156,15 @@ func Test_Hub_Disconnect(t *testing.T) {
 		fClientMock := mocks.NewMockFriendshipClient(t)
 
 		h := newHub(t, uRepo, rRepo, mRepo, fClientMock)
-		connectUser(t, h, uRepo, rRepo, userID_1, userID_1, []*domain.Room{{ID: roomID_1}})
+		connectUser(t, h, uRepo, rRepo, userID_1, username_1, []*domain.Room{{ID: roomID_1}})
 
 		_, err := h.Disconnect(t.Context(), userID_1)
 		require.NoError(t, err)
-
-		// assert.Empty(t, h.GetRoomClients(roomID_1))
 	})
 }
 
 func Test_Hub_InviteUser(t *testing.T) {
 	aliceID := "alice_id"
-
 	bobID := "bob_id"
 	bobName := "bob_name"
 
@@ -215,7 +219,7 @@ func Test_Hub_InviteUser(t *testing.T) {
 			err = h.InviteUser(t.Context(), aliceID, bobID, dbRoom.ID)
 
 			if tt.wantError != nil {
-				assert.Error(t, err)
+				assert.ErrorIs(t, err, tt.wantError)
 			} else {
 				require.NoError(t, err)
 			}
@@ -243,8 +247,6 @@ func Test_Hub_InviteUser(t *testing.T) {
 
 		err = h.InviteUser(t.Context(), aliceID, bobID, dbRoom.ID)
 		require.NoError(t, err)
-
-		// assert.Contains(t, h.GetRoomClients(roomID_1), bobName)
 	})
 }
 
@@ -265,7 +267,7 @@ func Test_Hub_LeaveRoom(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("Deletes room if empty", func(t *testing.T) {
+	t.Run("deletes room if empty", func(t *testing.T) {
 		uRepo := mocks.NewMockUserRepository(t)
 		rRepo := mocks.NewMockRoomRepository(t)
 		mRepo := mocks.NewMockMessageRepository(t)
@@ -297,8 +299,6 @@ func Test_Hub_LeaveRoom(t *testing.T) {
 
 		err := h.LeaveRoom(t.Context(), userID_1, roomID_1)
 		require.NoError(t, err)
-
-		// assert.Empty(t, h.GetRoomClients(roomID_1))
 	})
 
 	t.Run("not member returns ErrForbidden", func(t *testing.T) {
@@ -373,35 +373,6 @@ func Test_Hub_CreateRoom(t *testing.T) {
 	})
 }
 
-// TODO
-// func Test_Hub_GetRoomClients(t *testing.T) {
-// 	t.Run("room not in hub returns empty slice", func(t *testing.T) {
-// 		uRepo := mocks.NewMockUserRepository(t)
-// 		rRepo := mocks.NewMockRoomRepository(t)
-// 		mRepo := mocks.NewMockMessageRepository(t)
-// 		fClientMock := mocks.NewMockFriendshipClient(t)
-
-// 		h := newHub(t, uRepo, rRepo, mRepo, fClientMock)
-// 		clients := h.GetRoomClients("nonexistent")
-// 		assert.Empty(t, clients)
-// 	})
-
-// 	t.Run("returns connected user names", func(t *testing.T) {
-// 		uRepo := mocks.NewMockUserRepository(t)
-// 		rRepo := mocks.NewMockRoomRepository(t)
-// 		mRepo := mocks.NewMockMessageRepository(t)
-// 		fClientMock := mocks.NewMockFriendshipClient(t)
-
-// 		h := newHub(t, uRepo, rRepo, mRepo, fClientMock)
-// 		connectUser(t, h, uRepo, rRepo, "alice", "alice", []*domain.Room{{ID: roomID_1}})
-// 		connectUser(t, h, uRepo, rRepo, "bob", "bob", []*domain.Room{{ID: roomID_1}})
-
-// 		clients := h.GetRoomClients(roomID_1)
-// 		assert.Contains(t, clients, "alice")
-// 		assert.Contains(t, clients, "bob")
-// 	})
-// }
-
 func Test_Hub_GetRoomHistory(t *testing.T) {
 	t.Run("not member returns ErrForbidden", func(t *testing.T) {
 		uRepo := mocks.NewMockUserRepository(t)
@@ -431,25 +402,7 @@ func Test_Hub_GetRoomHistory(t *testing.T) {
 		assert.Nil(t, msgs)
 	})
 
-	t.Run("before zero calls GetMessages", func(t *testing.T) {
-		uRepo := mocks.NewMockUserRepository(t)
-		rRepo := mocks.NewMockRoomRepository(t)
-		mRepo := mocks.NewMockMessageRepository(t)
-		fClientMock := mocks.NewMockFriendshipClient(t)
-
-		before := time.Time{}
-
-		h := newHub(t, uRepo, rRepo, mRepo, fClientMock)
-		rRepo.EXPECT().IsMember(mock.Anything, userID_1, roomID_1).Return(true, nil)
-		expected := []*domain.Message{{Message: "hello"}}
-		mRepo.EXPECT().GetMessagesBefore(mock.Anything, roomID_1, mock.Anything).Return(expected, nil)
-
-		msgs, err := h.GetRoomHistory(t.Context(), userID_1, roomID_1, before)
-		require.NoError(t, err)
-		assert.Equal(t, expected, msgs)
-	})
-
-	t.Run("before future treated as zero calls GetMessages", func(t *testing.T) {
+	t.Run("before zero uses current time", func(t *testing.T) {
 		uRepo := mocks.NewMockUserRepository(t)
 		rRepo := mocks.NewMockRoomRepository(t)
 		mRepo := mocks.NewMockMessageRepository(t)
@@ -460,13 +413,12 @@ func Test_Hub_GetRoomHistory(t *testing.T) {
 		expected := []*domain.Message{{Message: "hello"}}
 		mRepo.EXPECT().GetMessagesBefore(mock.Anything, roomID_1, mock.Anything).Return(expected, nil)
 
-		future := time.Now().Add(24 * time.Hour)
-		msgs, err := h.GetRoomHistory(t.Context(), userID_1, roomID_1, future)
+		msgs, err := h.GetRoomHistory(t.Context(), userID_1, roomID_1, time.Time{})
 		require.NoError(t, err)
 		assert.Equal(t, expected, msgs)
 	})
 
-	t.Run("before past calls GetMessagesBefore", func(t *testing.T) {
+	t.Run("before past is passed through", func(t *testing.T) {
 		uRepo := mocks.NewMockUserRepository(t)
 		rRepo := mocks.NewMockRoomRepository(t)
 		mRepo := mocks.NewMockMessageRepository(t)
@@ -534,7 +486,7 @@ func Test_Hub_Shutdown(t *testing.T) {
 		fClientMock := mocks.NewMockFriendshipClient(t)
 
 		h := newHub(t, uRepo, rRepo, mRepo, fClientMock)
-		connectUser(t, h, uRepo, rRepo, userID_1, userID_1, []*domain.Room{})
+		connectUser(t, h, uRepo, rRepo, userID_1, username_1, []*domain.Room{})
 
 		done := make(chan struct{})
 		go func() {

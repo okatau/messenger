@@ -1,7 +1,7 @@
 package clients
 
 import (
-	pb "chat_service/pkg/friendspb"
+	pb "chat_service/pkg/friends_pb"
 	"context"
 
 	"google.golang.org/grpc"
