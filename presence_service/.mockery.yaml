@@ -1,0 +1,18 @@
+formatter: goimports
+filename: "mock_{{.InterfaceName | snakecase}}.go"
+
+packages:
+  presence_service/internal/service:
+    interfaces:
+      Presence:
+        config:
+          dir: internal/mocks
+          pkgname: mocks
+      
+
+  presence_service/internal/repository:
+    interfaces:
+      PresenceRepository:
+        config:
+          dir: internal/mocks
+          pkgname: mocks

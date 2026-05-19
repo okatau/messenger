@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+import "common.proto";
+
+option go_package = "presence_service/pkg/pb";
+
+message GetBulkStatusReq {
+    repeated string user_ids = 1;
+}
+
+message GetBulkStatusRes {
+    Status status = 1;
+    repeated UserInfo user_info = 2;
+}
