@@ -10,7 +10,7 @@ REGISTRY ?= $(shell grep '^REGISTRY=' nginx_router/.env.prod 2>/dev/null | cut -
 VERSION  ?= $(shell git rev-parse --short HEAD)
 
 local-up:
-	$(COMPOSE_LOCAL) $(ENV_FILE_LOCAL) $(COMPOSE_FLAGS) up --build
+	$(COMPOSE_LOCAL) $(ENV_FILE_LOCAL) $(COMPOSE_FLAGS) up -d --build
 
 prod-up:
 	$(COMPOSE_PROD) $(ENV_FILE_PROD) $(COMPOSE_FLAGS) up -d --build

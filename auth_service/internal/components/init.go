@@ -13,7 +13,6 @@ import (
 	"auth_service/pkg/service_logger"
 	"auth_service/pkg/token_manager"
 
-	"github.com/go-redis/redis_rate/v10"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -26,7 +25,6 @@ type Config struct {
 
 type Components struct {
 	Postgres     *pgxpool.Pool
-	Limiter      *redis_rate.Limiter
 	TokenManager *token_manager.TokenManager
 	Svc          service.Auth
 	Logger       *slog.Logger

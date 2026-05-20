@@ -8,6 +8,7 @@ import (
 
 	"chat_service/internal/clients"
 	"chat_service/internal/domain"
+	"chat_service/internal/pubsub"
 	"chat_service/internal/repository"
 	"chat_service/pkg/service_logger"
 
@@ -17,13 +18,17 @@ import (
 type Hub interface {
 	Connect(ctx context.Context, userID string, conn *websocket.Conn) error
 	Disconnect(ctx context.Context, userID string) (User, error)
+
 	InviteUser(ctx context.Context, inviterID, inviteeID, roomID string) error
 	LeaveRoom(ctx context.Context, userID, roomID string) error
-	Shutdown(ctx context.Context)
+
 	CreateRoom(ctx context.Context, roomName, userID string) (*domain.Room, error)
+
 	GetRoomClients(ctx context.Context, roomID string) ([]*domain.User, error)
 	GetRoomHistory(ctx context.Context, userID, roomID string, before time.Time) ([]*domain.Message, error)
 	GetRoomsByUser(ctx context.Context, userID string) ([]*domain.Room, error)
+
+	Shutdown(ctx context.Context)
 }
 
 type hub struct {
@@ -37,6 +42,7 @@ type hub struct {
 	logger        *slog.Logger
 	wg            sync.WaitGroup
 	friendsClient clients.FriendshipClient
+	ps            pubsub.PubSub
 }
 
 func NewHub(
@@ -46,6 +52,7 @@ func NewHub(
 	msgRepo repository.MessageRepository,
 	logger *slog.Logger,
 	friendsClient clients.FriendshipClient,
+	ps pubsub.PubSub,
 ) Hub {
 	return &hub{
 		rooms:         make(map[string]Room),
@@ -56,6 +63,7 @@ func NewHub(
 		msgRepo:       msgRepo,
 		logger:        logger,
 		friendsClient: friendsClient,
+		ps:            ps,
 	}
 }
 
@@ -87,7 +95,7 @@ func (h *hub) Connect(ctx context.Context, userID string, conn *websocket.Conn) 
 	for _, roomDTO := range rooms {
 		room, exists := h.rooms[roomDTO.ID]
 		if !exists {
-			room = NewRoom(roomDTO.ID, h.msgRepo, h.logger)
+			room = NewRoom(roomDTO.ID, h.msgRepo, h.ps, h.logger)
 			h.rooms[roomDTO.ID] = room
 			go room.Run(ctx)
 		}
@@ -128,7 +136,7 @@ func (h *hub) InviteUser(ctx context.Context, inviterID, inviteeID, roomID strin
 	const op = "chat.service.hub.inviteuser"
 	logger := h.logger.With(slog.String("op", op))
 
-	isMember, err := h.isMember(ctx, inviterID, roomID)
+	isMember, err := h.roomRepo.IsMember(ctx, inviterID, roomID)
 	if err != nil {
 		logger.Error("failed to check user", service_logger.Err(err))
 		return err
@@ -161,7 +169,7 @@ func (h *hub) InviteUser(ctx context.Context, inviterID, inviteeID, roomID strin
 
 	room, exists := h.rooms[roomID]
 	if !exists {
-		room = NewRoom(roomID, h.msgRepo, h.logger)
+		room = NewRoom(roomID, h.msgRepo, h.ps, h.logger)
 		h.rooms[roomID] = room
 		go room.Run(h.ctx)
 	}
@@ -176,7 +184,7 @@ func (h *hub) LeaveRoom(ctx context.Context, userID, roomID string) error {
 	const op = "chat.service.hub.leaveroom"
 	logger := h.logger.With(slog.String("op", op))
 
-	isMember, err := h.isMember(ctx, userID, roomID)
+	isMember, err := h.roomRepo.IsMember(ctx, userID, roomID)
 	if err != nil {
 		logger.Error("failed to check user", service_logger.Err(err))
 		return err
@@ -251,7 +259,7 @@ func (h *hub) CreateRoom(ctx context.Context, roomName, userID string) (*domain.
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	newRoom := NewRoom(roomDTO.ID, h.msgRepo, h.logger)
+	newRoom := NewRoom(roomDTO.ID, h.msgRepo, h.ps, h.logger)
 	h.rooms[roomDTO.ID] = newRoom
 	go newRoom.Run(h.ctx)
 
@@ -264,16 +272,6 @@ func (h *hub) CreateRoom(ctx context.Context, roomName, userID string) (*domain.
 }
 
 func (h *hub) GetRoomClients(ctx context.Context, roomID string) ([]*domain.User, error) {
-	// h.mu.RLock()
-	// defer h.mu.RUnlock()
-
-	// room, exists := h.rooms[roomID]
-	// if !exists {
-	// 	return []string{}
-	// }
-
-	// return room.GetUsernames()
-
 	_, exists := h.rooms[roomID]
 	if !exists {
 		return nil, nil
@@ -286,7 +284,7 @@ func (h *hub) GetRoomHistory(ctx context.Context, userID, roomID string, before 
 	const op = "chat.service.hub.getroomhistory"
 	logger := h.logger.With(slog.String("op", op))
 
-	isMember, err := h.isMember(ctx, userID, roomID)
+	isMember, err := h.roomRepo.IsMember(ctx, userID, roomID)
 	if err != nil {
 		logger.Error("failed to check user", "userID", userID)
 		return nil, err
@@ -312,6 +310,6 @@ func (h *hub) GetRoomsByUser(ctx context.Context, userID string) ([]*domain.Room
 	return h.roomRepo.GetRoomsByUserID(ctx, userID)
 }
 
-func (h *hub) isMember(ctx context.Context, userID, roomID string) (bool, error) {
-	return h.roomRepo.IsMember(ctx, userID, roomID)
-}
+// func (h *hub) isMember(ctx context.Context, userID, roomID string) (bool, error) {
+// 	return h.roomRepo.IsMember(ctx, userID, roomID)
+// }
