@@ -5,11 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"friends_service/internal/components"
-	"friends_service/internal/handler"
-	grpcHandler "friends_service/internal/handler/grpc"
-	"friends_service/internal/middleware"
+	grpcserver "friends_service/internal/server/grpc"
+	httpserver "friends_service/internal/server/http"
 	"friends_service/pkg/config"
-	"friends_service/pkg/service_logger"
 	"log"
 	"net"
 	"net/http"
@@ -17,9 +15,8 @@ import (
 	"syscall"
 	"time"
 
-	pb "friends_service/pkg/friendspb"
+	pb "friends_service/pkg/friends_pb"
 
-	"github.com/labstack/echo/v5"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
@@ -35,39 +32,15 @@ func main() {
 
 	comps := components.InitComponents(initCtx, cfg)
 
-	loggerMW := service_logger.LoggerMW(comps.Logger)
-
-	router := echo.New()
-
-	router.Use(loggerMW)
-	router.Use(middleware.ExtractUserID())
-
-	router.GET("", handler.GetFriendsList(comps.Svc))
-	router.GET("/search", handler.SearchUser(comps.Svc))
-	router.GET("/invites", handler.GetInvites(comps.Svc))
-	router.GET("/search/friend", handler.SearchFriend(comps.Svc))
-
-	router.POST("/add", handler.SendFriendRequest(comps.Svc))
-	router.POST("/accept", handler.AcceptFriendRequest(comps.Svc))
-	router.POST("/decline", handler.DeclineFriendRequest(comps.Svc))
-	router.POST("/cancel", handler.CancelFriendRequest(comps.Svc)) // no use for now
-
-	router.DELETE("/:friendId", handler.RemoveFriend(comps.Svc))
-
-	// TODO add TLS
-	httpServer := &http.Server{
-		Addr:    fmt.Sprintf(":%d", cfg.ServerConfig.Port),
-		Handler: router,
-	}
-
+	srvHttp := httpserver.New(cfg.ServerConfig, comps.Svc, comps.Logger)
 	grpcServer := grpc.NewServer()
-	pb.RegisterFriendshipServer(grpcServer, &grpcHandler.GRPCServer{Svc: comps.Svc})
+	pb.RegisterFriendshipServer(grpcServer, grpcserver.New(comps.Svc))
 
 	g, gCtx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
 		comps.Logger.Info(fmt.Sprintf("listening friends service on %d", cfg.ServerConfig.Port))
-		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := srvHttp.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return fmt.Errorf("http server: %w", err)
 		}
 		return nil
@@ -93,7 +66,7 @@ func main() {
 
 		grpcServer.GracefulStop()
 
-		if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		if err := srvHttp.Stop(shutdownCtx); err != nil {
 			return fmt.Errorf("http shutdown: %w", err)
 		}
 

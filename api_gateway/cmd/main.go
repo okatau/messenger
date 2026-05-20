@@ -65,7 +65,7 @@ func main() {
 
 	<-quit
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.TODO(), 10*time.Second)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
 	if err := serv.Shutdown(shutdownCtx); err != nil {
