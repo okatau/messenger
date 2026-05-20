@@ -6,9 +6,9 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./nginx.prod.conf:/etc/nginx/nginx.conf.template:ro
+      - ../config/nginx/nginx.prod.conf:/etc/nginx/nginx.conf.template:ro
       - certbot-conf:/certdata:ro
-      - certbot-www:/certdata/www:ro
+      - certbot-www:/var/www/certbot:ro
       - /dev/shm:/dev/shm
     command: >
       /bin/sh -c "envsubst '$$DOMAIN' < /etc/nginx/nginx.conf.template
@@ -83,7 +83,7 @@ services:
       - "7777"
     volumes:
       - ../config/api_gateway/prod.yaml:/etc/api-gateway/prod.yaml
-      - ./.env.prod:/etc/api-gateway/.env.prod
+      - ../config/.env.prod:/etc/api-gateway/.env.prod
     depends_on:
       auth-prod:
         condition: service_started
@@ -106,10 +106,12 @@ services:
       - "8081"
     volumes:
       - ../config/auth_service/prod.yaml:/etc/auth_service/prod.yaml
-      - ./.env.prod:/etc/auth_service/.env.prod
+      - ../config/.env.prod:/etc/auth_service/.env.prod
     depends_on:
       pg-prod:
         condition: service_healthy
+      chat-prod:
+        condition: service_started
     networks: [backend]
 
   chat-prod:
@@ -123,7 +125,7 @@ services:
       - "8082"
     volumes:
       - ../config/chat_service/prod.yaml:/etc/chat_service/prod.yaml
-      - ./.env.prod:/etc/chat_service/.env.prod
+      - ../config/.env.prod:/etc/chat_service/.env.prod
     depends_on:
       pg-prod:
         condition: service_healthy
@@ -145,7 +147,7 @@ services:
       - "50051"
     volumes:
       - ../config/friends_service/prod.yaml:/etc/friends_service/prod.yaml
-      - ./.env.prod:/etc/friends_service/.env.prod
+      - ../config/.env.prod:/etc/friends_service/.env.prod
     depends_on:
       pg-prod:
         condition: service_healthy

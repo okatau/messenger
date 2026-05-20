@@ -4,7 +4,7 @@ services:
     ports:
       - "8080:80"
     volumes:
-      - ./nginx.staging.conf:/etc/nginx/nginx.conf:ro
+      - ../config/nginx/nginx.staging.conf:/etc/nginx/nginx.conf:ro
     command: nginx -g 'daemon off;'
     environment:
       DOMAIN: ""

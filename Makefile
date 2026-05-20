@@ -1,12 +1,12 @@
-COMPOSE_LOCAL = docker compose -f nginx_router/docker-compose.local.yml
-ENV_FILE_LOCAL = --env-file=nginx_router/.env.local
-COMPOSE_PROD = docker compose -f nginx_router/docker-compose.prod.yml
-ENV_FILE_PROD = --env-file=nginx_router/.env.prod
-COMPOSE_STAGING = docker compose -f nginx_router/docker-compose.prod.yml -f nginx_router/docker-compose.staging.yml
+COMPOSE_LOCAL = docker compose -f docker/docker-compose.local.yml
+ENV_FILE_LOCAL = --env-file=config/.env.local
+COMPOSE_PROD = docker compose -f docker/docker-compose.prod.yml
+ENV_FILE_PROD = --env-file=config/.env.prod
+COMPOSE_STAGING = docker compose -f docker/docker-compose.prod.yml -f docker/docker-compose.staging.yml
 
-COMPOSE_FLAGS = --project-directory nginx_router
+COMPOSE_FLAGS = --project-directory docker
 
-REGISTRY ?= $(shell grep '^REGISTRY=' nginx_router/.env.prod 2>/dev/null | cut -d= -f2)
+REGISTRY ?= $(shell grep '^REGISTRY=' config/.env.prod 2>/dev/null | cut -d= -f2)
 VERSION  ?= $(shell git rev-parse --short HEAD)
 
 local-up:

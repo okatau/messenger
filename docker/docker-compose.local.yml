@@ -13,16 +13,28 @@ services:
       - "7777"
     volumes:
       - ../config/api_gateway/local.yaml:/etc/api_gateway/local.yaml
-      - ./.env.local:/etc/api_gateway/.env.local
+      - ../config/.env.local:/etc/api_gateway/.env.local
     depends_on:
       redis-local:
         condition: service_healthy
       auth-local:
         condition: service_started
-      chat-local:
+      chat-lb-local:
         condition: service_started
       friends-local:
         condition: service_started
+
+  chat-lb-local:
+    container_name: chat-lb-local
+    restart: always
+    image: nginx:alpine
+    expose:
+      - "8082"
+    volumes:
+      - ../config/nginx/nginx.chat-lb.local.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - chat-local-1
+      - chat-local-2
 
   nginx-local:
     container_name: nginx-local
@@ -32,11 +44,11 @@ services:
     ports:
       - "8080:80"
     volumes:
-      - ./nginx.local.conf:/etc/nginx/nginx.conf
+      - ../config/nginx/nginx.local.conf:/etc/nginx/nginx.conf
     depends_on:
       - frontend-local
       - api-gateway-local
-      - chat-local
+      - chat-local-1
       - chat-local-2
 
   frontend-local:
@@ -100,13 +112,13 @@ services:
       - "8081"
     volumes:
       - ../config/auth_service/local.yaml:/etc/auth_service/local.yaml
-      - ./.env.local:/etc/auth_service/.env.local
+      - ../config/.env.local:/etc/auth_service/.env.local
     depends_on:
       pg-local:
         condition: service_healthy
       
-  chat-local:
-    container_name: chat-local
+  chat-local-1:
+    container_name: chat-local-1
     restart: always
     build:
       context: ../chat_service
@@ -118,10 +130,12 @@ services:
       - "8082"
     volumes:
       - ../config/chat_service/local.yaml:/etc/chat_service/local.yaml
-      - ./.env.local:/etc/chat_service/.env.local
+      - ../config/.env.local:/etc/chat_service/.env.local
     depends_on:
-      migrate:
-        condition: service_completed_successfully
+      pg-local:
+        condition: service_healthy
+      redis-local:
+        condition: service_healthy
       friends-local:
         condition: service_started
 
@@ -138,7 +152,7 @@ services:
       - "8082"
     volumes:
       - ../config/chat_service/local.yaml:/etc/chat_service/local.yaml
-      - ./.env.local:/etc/chat_service/.env.local
+      - ../config/.env.local:/etc/chat_service/.env.local
     depends_on:
       pg-local:
         condition: service_healthy
@@ -161,7 +175,7 @@ services:
       - "50051"
     volumes:
       - ../config/friends_service/local.yaml:/etc/friends_service/local.yaml
-      - ./.env.local:/etc/friends_service/.env.local
+      - ../config/.env.local:/etc/friends_service/.env.local
     depends_on:
       pg-local:
         condition: service_healthy

@@ -70,14 +70,14 @@ cd messenger
 ```
 
 ### Предварительная настройка
-Для локального развертывания можно пропустить эту часть, т.к. все конфиги готовы `config/*/local.yaml` и [env](/nginx_router/.env.local).
+Для локального развертывания можно пропустить эту часть, т.к. все конфиги готовы `config/*/local.yaml` и [env](/config/.env.local).
 И перейти [сюда](#локально)
 
 ```bash
-cp nginx_router/.env.example nginx_router/.env.prod
+cp config/.env.example config/.env.prod
 ```
 
-Для деплоя на проде нужно заполнить [env](/nginx_router/.env.prod)
+Для деплоя на проде нужно заполнить [env](/config/.env.prod)
 
 Команды для генерации RSA ключей
 ```bash
@@ -88,14 +88,13 @@ base64 -w 0 -i private.pem
 base64 -w 0 -i public.pem
 ```
 
-Вставьте значения `AUTH_PUBLIC_PEM_BASE64` и `AUTH_PRIVATE_PEM_BASE64` в `nginx_router/.env.prod`
+Вставьте значения `AUTH_PUBLIC_PEM_BASE64` и `AUTH_PRIVATE_PEM_BASE64` в `config/.env.prod`
 
 #### Получение SSL-сертификата (Let's Encrypt)
 
 Выполните один раз на сервере:
 
 ```bash
-cd nginx_router
 bash init-certbot.sh
 ```
 
@@ -105,7 +104,7 @@ bash init-certbot.sh
 
 ### Локально
 
-Готовый конфиг для локального запуска есть - [конфиг](/nginx_router/.env.local)
+Готовый конфиг для локального запуска есть - [конфиг](/config/.env.local)
 
 ```bash
 cd frontend && npm install 

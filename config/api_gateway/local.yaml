@@ -20,5 +20,5 @@ limits:
   friends_add: 10
 
 auth_addr: "http://auth-local:8081"
-chat_addr: "http://chat-local:8082"
+chat_addr: "http://chat-lb-local:8082"
 friends_addr: "http://friends-local:8083"
