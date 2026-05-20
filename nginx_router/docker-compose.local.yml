@@ -72,24 +72,6 @@ services:
       timeout: 5s
       retries: 10
   
-  # TODO move to makefile?
-  migrate:
-    image: postgres:16-alpine
-    depends_on:
-      pg-local:
-        condition: service_healthy
-    volumes:
-      - ../migrations:/migrations
-    environment: 
-      PGPASSWORD: postgres
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        for f in $(ls /migrations/*.up.sql | sort); do
-          echo "Applying $$f"                                                                                                                                                                                                                         
-          psql -h pg-local -U postgres -d messenger -f $$f
-        done    
-  
   redis-local:
     container_name: redis-local
     user: "root"
@@ -116,18 +98,13 @@ services:
       APP_CONFIG_FILE: /etc/auth_service/local.yaml
     expose:
       - "8081"
-    # ports:
-    #   - "8081:8081"
-    # command: ["./server", "-env", "/etc/auth_service/.env.local", "-config", "/etc/auth_service/local.yaml"]
     volumes:
       - ../config/auth_service/local.yaml:/etc/auth_service/local.yaml
       - ./.env.local:/etc/auth_service/.env.local
     depends_on:
-      migrate:
-        condition: service_completed_successfully
-      redis-local:
+      pg-local:
         condition: service_healthy
-
+      
   chat-local:
     container_name: chat-local
     restart: always
@@ -163,8 +140,10 @@ services:
       - ../config/chat_service/local.yaml:/etc/chat_service/local.yaml
       - ./.env.local:/etc/chat_service/.env.local
     depends_on:
-      migrate:
-        condition: service_completed_successfully
+      pg-local:
+        condition: service_healthy
+      redis-local:
+        condition: service_healthy
       friends-local:
         condition: service_started
 
@@ -184,8 +163,8 @@ services:
       - ../config/friends_service/local.yaml:/etc/friends_service/local.yaml
       - ./.env.local:/etc/friends_service/.env.local
     depends_on:
-      migrate:
-        condition: service_completed_successfully
+      pg-local:
+        condition: service_healthy
 
 
 

@@ -3,11 +3,12 @@ package components
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"log"
 	"log/slog"
 
 	"chat_service/internal/clients"
+	"chat_service/internal/db"
+	"chat_service/internal/pubsub"
 	"chat_service/internal/repository"
 	"chat_service/internal/service"
 	"chat_service/pkg/config"
@@ -40,21 +41,16 @@ type Components struct {
 }
 
 func InitComponents(ctx context.Context, hubCtx context.Context, cfg *Config) *Components {
-	dsn := getPostgresDSN(cfg.Postgres)
-
-	pool, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err = pool.Ping(ctx); err != nil {
-		log.Fatal(err)
+	pool := db.Connect(ctx, cfg.Postgres)
+	if err := db.Run(cfg.Postgres); err != nil {
+		log.Fatal("migration failed:", err)
 	}
 
 	rdb := redis.NewUniversalClient(&redis.UniversalOptions{
 		Addrs:    cfg.Redis.Addrs,
 		Password: cfg.Redis.Password,
 	})
-	if err = rdb.Ping(ctx).Err(); err != nil {
+	if err := rdb.Ping(ctx).Err(); err != nil {
 		log.Fatalf("redis ping failed: %v", err)
 	}
 
@@ -73,6 +69,7 @@ func InitComponents(ctx context.Context, hubCtx context.Context, cfg *Config) *C
 	roomRepo := repository.NewRoomRepository(pool)
 	userRepo := repository.NewUserRepository(pool)
 	msgRepo := repository.NewMessageRepository(pool, rdb)
+	ps := pubsub.NewPubSub(rdb)
 
 	conn, err := grpc.NewClient(
 		cfg.FriendsGRPCAddress,
@@ -84,7 +81,7 @@ func InitComponents(ctx context.Context, hubCtx context.Context, cfg *Config) *C
 
 	friendsClient := clients.NewFriendshipClient(conn)
 
-	hub := service.NewHub(hubCtx, userRepo, roomRepo, msgRepo, logger, friendsClient)
+	hub := service.NewHub(hubCtx, userRepo, roomRepo, msgRepo, logger, friendsClient, ps)
 
 	return &Components{
 		Postgres:     pool,
@@ -101,8 +98,4 @@ func (c *Components) Shutdown(ctx context.Context) {
 	c.Redis.Close()
 	c.Hub.Shutdown(ctx)
 	c.grpcConn.Close()
-}
-
-func getPostgresDSN(cfg config.PostgresConfig) string {
-	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s", cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.DBName)
 }

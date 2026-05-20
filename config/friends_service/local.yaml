@@ -6,11 +6,3 @@ http:
   read_timeout: 10s
   write_timeout: 10s
   shutdown_timeout: 10s
-
-redis:
-  addrs:
-    - redis-local:6379
-
-limits:
-  search: 20
-  add: 10

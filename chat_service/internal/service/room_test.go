@@ -22,14 +22,15 @@ var (
 	username_1 = "username"
 )
 
-func newTestRoom(id string, repo repository.MessageRepository) Room {
+func newTestRoom(id string, repo repository.MessageRepository, ps *mocks.MockPubSub) Room {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
-	return NewRoom(id, repo, logger)
+	return NewRoom(id, repo, ps, logger)
 }
 
 func Test_Room_NewRoom(t *testing.T) {
 	repo := mocks.NewMockMessageRepository(t)
-	room := newTestRoom(roomID_1, repo)
+	ps := mocks.NewMockPubSub(t)
+	room := newTestRoom(roomID_1, repo, ps)
 	assert.Equal(t, roomID_1, room.ID())
 }
 
@@ -39,7 +40,7 @@ func Test_Room_AddUser(t *testing.T) {
 		user.EXPECT().ID().Return(userID_1)
 		user.EXPECT().Name().Return(username_1)
 
-		room := newTestRoom(roomID_1, mocks.NewMockMessageRepository(t))
+		room := newTestRoom(roomID_1, nil, nil)
 
 		require.NoError(t, room.AddUser(user))
 		assert.Contains(t, room.GetUsernames(), user.Name())
@@ -49,7 +50,7 @@ func Test_Room_AddUser(t *testing.T) {
 		user := NewMockUser(t)
 		user.EXPECT().ID().Return(userID_1)
 
-		room := newTestRoom(roomID_1, mocks.NewMockMessageRepository(t))
+		room := newTestRoom(roomID_1, nil, nil)
 
 		require.NoError(t, room.AddUser(user))
 
@@ -64,7 +65,7 @@ func Test_Room_RemoveUser(t *testing.T) {
 		user.EXPECT().ID().Return(userID_1)
 		user.EXPECT().Name().Return(username_1)
 
-		room := newTestRoom(roomID_1, mocks.NewMockMessageRepository(t))
+		room := newTestRoom(roomID_1, nil, nil)
 
 		require.NoError(t, room.AddUser(user))
 
@@ -76,7 +77,7 @@ func Test_Room_RemoveUser(t *testing.T) {
 		user := NewMockUser(t)
 		user.EXPECT().ID().Return(userID_1)
 
-		room := newTestRoom(roomID_1, mocks.NewMockMessageRepository(t))
+		room := newTestRoom(roomID_1, nil, nil)
 
 		err := room.RemoveUser(user)
 		assert.ErrorIs(t, err, domain.ErrUserNotFound)
@@ -88,7 +89,7 @@ func Test_Room_GetUsernames_ReturnsCopy(t *testing.T) {
 	user.EXPECT().ID().Return(userID_1)
 	user.EXPECT().Name().Return(username_1)
 
-	room := newTestRoom(roomID_1, mocks.NewMockMessageRepository(t))
+	room := newTestRoom(roomID_1, nil, nil)
 
 	require.NoError(t, room.AddUser(user))
 
@@ -96,6 +97,14 @@ func Test_Room_GetUsernames_ReturnsCopy(t *testing.T) {
 	list = list[:len(list)-1]
 
 	assert.Contains(t, room.GetUsernames(), username_1)
+}
+func makeSubscribedPS(t *testing.T, channel string) (*mocks.MockPubSub, chan *domain.Message) {
+	t.Helper()
+	ps := mocks.NewMockPubSub(t)
+	msgCh := make(chan *domain.Message, 1)
+	ps.EXPECT().Subscribe(mock.Anything, channel).Return(msgCh, func() {}).Maybe()
+
+	return ps, msgCh
 }
 
 func Test_Room_Broadcast(t *testing.T) {
@@ -105,59 +114,59 @@ func Test_Room_Broadcast(t *testing.T) {
 		user := NewMockUser(t)
 		user.EXPECT().ID().Return(userID_1)
 
-		broadcastCh := make(chan *domain.Message)
+		broadcastCh := make(chan *domain.Message, 1)
 		user.EXPECT().Write(mock.Anything, msg).
-			Run(func(_ context.Context, msg *domain.Message) {
-				broadcastCh <- msg
+			Run(func(_ context.Context, m *domain.Message) {
+				broadcastCh <- m
 			}).Return(nil)
 
 		mrepo := mocks.NewMockMessageRepository(t)
-		writeCh := make(chan struct{})
-		mrepo.EXPECT().WriteMessage(mock.Anything, mock.Anything).
-			Run(func(_ context.Context, _ *domain.Message) {
-				close(writeCh)
+		mrepo.EXPECT().WriteMessage(mock.Anything, mock.Anything).Return(nil)
+
+		channel := "room:" + roomID_1
+
+		ps, msgCh := makeSubscribedPS(t, channel)
+		ps.EXPECT().Publish(mock.Anything, channel, msg).
+			Run(func(_ context.Context, _ string, m *domain.Message) {
+				msgCh <- m
 			}).Return(nil)
 
-		room := newTestRoom(roomID_1, mrepo)
+		room := newTestRoom(roomID_1, mrepo, ps)
 		require.NoError(t, room.AddUser(user))
 
 		go room.Run(t.Context())
 		defer room.Stop()
 
 		room.Broadcast(t.Context(), msg)
-		receivedMsg := <-broadcastCh
-		assert.Equal(t, "broadcast success", receivedMsg.Message)
 
 		select {
-		case <-writeCh:
+		case receivedMsg := <-broadcastCh:
+			assert.Equal(t, "broadcast success", receivedMsg.Message)
 		case <-time.After(time.Second):
-			t.Fatal("WriteMessage was not called")
+			t.Fatal("user.Write was not called")
 		}
 	})
 
-	t.Run("stooped by stopping room", func(t *testing.T) {
+	t.Run("stopped by stopping room", func(t *testing.T) {
 		user := NewMockUser(t)
 		user.EXPECT().ID().Return(userID_1)
 
-		room := newTestRoom(roomID_1, mocks.NewMockMessageRepository(t))
-
+		ps, _ := makeSubscribedPS(t, mock.Anything)
+		room := newTestRoom(roomID_1, mocks.NewMockMessageRepository(t), ps)
 		require.NoError(t, room.AddUser(user))
 
 		go room.Run(t.Context())
 		room.Stop()
 
 		room.Broadcast(t.Context(), &domain.Message{Message: "should be dropped"})
-
-		select {
-		case <-time.After(50 * time.Millisecond):
-		}
 	})
 
-	t.Run("stopping by context cancellation", func(t *testing.T) {
+	t.Run("stopped by context cancellation", func(t *testing.T) {
 		user := NewMockUser(t)
 		user.EXPECT().ID().Return(userID_1)
 
-		room := newTestRoom(roomID_1, mocks.NewMockMessageRepository(t))
+		ps, _ := makeSubscribedPS(t, mock.Anything)
+		room := newTestRoom(roomID_1, mocks.NewMockMessageRepository(t), ps)
 		require.NoError(t, room.AddUser(user))
 
 		ctx, cancel := context.WithCancel(t.Context())
@@ -165,9 +174,5 @@ func Test_Room_Broadcast(t *testing.T) {
 		cancel()
 
 		room.Broadcast(ctx, &domain.Message{Message: "should be dropped"})
-
-		select {
-		case <-time.After(50 * time.Millisecond):
-		}
 	})
 }
