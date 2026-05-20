@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+import "common.proto";
+
+option go_package = "presence_service/pkg/pb";
+
+message GetStatusReq {
+    string user_id = 1;
+}
+
+message GetStatusRes {
+    Status status = 1;
+    repeated MapMetadata metadata = 2;
+}

@@ -37,6 +37,7 @@ services:
       - frontend-local
       - api-gateway-local
       - chat-local
+      - chat-local-2
 
   frontend-local:
     container_name: frontend-local
@@ -106,6 +107,26 @@ services:
       
   chat-local:
     container_name: chat-local
+    restart: always
+    build:
+      context: ../chat_service
+      dockerfile: Dockerfile
+    environment:
+      APP_ENV_FILE: /etc/chat_service/.env.local
+      APP_CONFIG_FILE: /etc/chat_service/local.yaml
+    expose:
+      - "8082"
+    volumes:
+      - ../config/chat_service/local.yaml:/etc/chat_service/local.yaml
+      - ./.env.local:/etc/chat_service/.env.local
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      friends-local:
+        condition: service_started
+
+  chat-local-2:
+    container_name: chat-local-2
     restart: always
     build:
       context: ../chat_service

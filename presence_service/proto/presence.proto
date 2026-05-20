@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+import "common.proto";
+import "get_bulk_status.proto";
+import "get_status.proto";
+import "heartbeat.proto";
+import "mark_online.proto";
+
+option go_package = "presence_service/pkg/pb";
+
+// protoc -I proto \
+// --go_out=pkg/pb \
+// --go_opt=paths=source_relative \
+// --go-grpc_out=pkg/pb \
+// --go-grpc_opt=paths=source_relative \
+// proto/*.prot
+
+service Presence {
+    rpc MarkOnline(MarkOnlineReq) returns (Status) {}
+    rpc Heartbeat(HeartbeatReq) returns (Status) {}
+    rpc GetStatus(GetStatusReq) returns (GetStatusRes) {}
+    rpc GetBulkStatus(GetBulkStatusReq) returns (GetBulkStatusRes) {}
+}
