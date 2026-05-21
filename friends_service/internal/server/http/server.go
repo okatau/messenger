@@ -14,7 +14,7 @@ import (
 )
 
 type Server struct {
-	serv   *http.Server
+	srv    *http.Server
 	logger *slog.Logger
 }
 
@@ -30,7 +30,7 @@ func New(
 	registreRoutes(router, svc)
 
 	return &Server{
-		serv: &http.Server{
+		srv: &http.Server{
 			Addr:    fmt.Sprintf(":%d", cfg.Port),
 			Handler: router,
 			// ReadTimeout:  cfg.ServerConfig.ReadTimeout,
@@ -41,10 +41,10 @@ func New(
 }
 
 func (s *Server) Start() error {
-	s.logger.Info(fmt.Sprintf("listening auth service on %s", s.serv.Addr))
-	return s.serv.ListenAndServe()
+	s.logger.Info(fmt.Sprintf("listening auth service on %s", s.srv.Addr))
+	return s.srv.ListenAndServe()
 }
 
 func (s *Server) Stop(ctx context.Context) error {
-	return s.serv.Shutdown(ctx)
+	return s.srv.Shutdown(ctx)
 }

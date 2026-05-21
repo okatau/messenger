@@ -29,7 +29,7 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
-	serv := httpserver.New(
+	srv := httpserver.New(
 		hubCtx,
 		cfg.ServerConfig,
 		cfg.OriginWhitelist,
@@ -40,7 +40,7 @@ func main() {
 
 	go func() {
 		comps.Logger.Info(fmt.Sprintf("listening chat service on %d", cfg.ServerConfig.Port))
-		if err := serv.Start(); err != nil {
+		if err := srv.Start(); err != nil {
 			comps.Logger.Error("auth service stopped: %v", service_logger.Err(err))
 		}
 	}()
@@ -49,6 +49,6 @@ func main() {
 	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, cfg.ServerConfig.ShutdownTimeout)
 	defer shutdownCancel()
 
-	serv.Stop(shutdownCtx)
+	srv.Stop(shutdownCtx)
 	comps.Shutdown(shutdownCtx)
 }

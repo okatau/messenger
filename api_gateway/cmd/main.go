@@ -49,7 +49,7 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
-	serv := &http.Server{
+	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.ServerConfig.Port),
 		Handler: router,
 		// ReadTimeout:  cfg.ServerConfig.ReadTimeout,
@@ -58,7 +58,7 @@ func main() {
 
 	go func() {
 		comps.Logger.Info(fmt.Sprintf("listening api gateway service on %d", cfg.ServerConfig.Port))
-		if err := serv.ListenAndServe(); err != nil {
+		if err := srv.ListenAndServe(); err != nil {
 			log.Printf("api gateway service stopped: %v", err)
 		}
 	}()
@@ -68,7 +68,7 @@ func main() {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
-	if err := serv.Shutdown(shutdownCtx); err != nil {
+	if err := srv.Shutdown(shutdownCtx); err != nil {
 		comps.Logger.Error("error shutting down server", service_logger.Err(err))
 	}
 }
