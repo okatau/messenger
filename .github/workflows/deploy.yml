@@ -2,7 +2,7 @@ name: Build and Push
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   workflow_dispatch:
 
 env:
@@ -82,7 +82,7 @@ jobs:
         with:
           context: ${{ matrix.context }}
           platforms: linux/amd64,linux/arm64
-          push: true
+          push: false
           tags: |
             ${{ env.REGISTRY }}/${{ matrix.service }}:latest
             ${{ env.REGISTRY }}/${{ matrix.service }}:${{ github.sha }}
