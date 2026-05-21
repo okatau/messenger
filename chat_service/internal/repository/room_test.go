@@ -77,7 +77,7 @@ func runMigrations(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
 	ctx := context.Background()
 
-	migrationsDir := "../../../migrations"
+	migrationsDir := "../db/migrations"
 
 	_, err := pool.Exec(ctx, `CREATE EXTENSION IF NOT EXISTS "pgcrypto"`)
 	require.NoError(t, err)
