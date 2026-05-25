@@ -50,10 +50,12 @@ func (u *captureUser) DeleteRoom(Room) error                       { return nil 
 func (u *captureUser) Rooms() map[string]Room                      { return nil }
 func (u *captureUser) Listen(_ context.Context, _ *sync.WaitGroup) {}
 func (u *captureUser) Stop()                                       {}
-func (u *captureUser) Write(_ context.Context, msg *domain.Message) error {
+func (u *captureUser) Write(msg *domain.Message) error {
 	u.received <- msg
 	return nil
 }
+
+var _ User = (*captureUser)(nil)
 
 func Test_CrossInstance_MessageDelivery(t *testing.T) {
 	rdb := startRedis(t)

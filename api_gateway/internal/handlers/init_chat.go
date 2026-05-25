@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"api_gateway/internal/components"
 	"errors"
 	"log"
 	"net/http/httputil"
@@ -9,10 +8,12 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v5"
+
+	"api_gateway/internal/components"
 )
 
-func createProxy(targetUrl string, prefix string) (*httputil.ReverseProxy, error) {
-	target, err := url.Parse(targetUrl)
+func createProxy(targetURL, prefix string) (*httputil.ReverseProxy, error) {
+	target, err := url.Parse(targetURL)
 	if err != nil {
 		return nil, errors.New("error parsing url")
 	}
@@ -32,12 +33,12 @@ func createProxy(targetUrl string, prefix string) (*httputil.ReverseProxy, error
 
 func InitChatEndpoints(
 	chat *echo.Group,
-	targetUrl string,
+	targetURL string,
 	cl components.ChatLimits,
 	rl func(limit int) echo.MiddlewareFunc,
 	auth echo.MiddlewareFunc,
 ) {
-	proxy, err := createProxy(targetUrl, "/api/v1/rooms")
+	proxy, err := createProxy(targetURL, "/api/v1/rooms")
 	if err != nil {
 		log.Fatal(err)
 	}

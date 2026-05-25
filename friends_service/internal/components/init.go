@@ -3,20 +3,21 @@ package components
 import (
 	"context"
 	"fmt"
-	"friends_service/internal/repository"
-	"friends_service/internal/service"
-	"friends_service/pkg/config"
-	"friends_service/pkg/service_logger"
 	"log"
 	"log/slog"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"friends_service/internal/repository"
+	"friends_service/internal/service"
+	"friends_service/pkg/config"
+	"friends_service/pkg/service_logger"
 )
 
 type Config struct {
 	Env          string                `yaml:"env" env-default:"local"`
 	Postgres     config.PostgresConfig `env-prefix:"PG_"`
-	ServerConfig config.HTTPConfig     `yaml:"http"`
+	ServerConfig config.ServerConfig   `yaml:"http"`
 }
 
 type Components struct {
@@ -49,7 +50,7 @@ func InitComponents(ctx context.Context, cfg *Config) *Components {
 	}
 }
 
-func (c *Components) Shutdown(ctx context.Context) {
+func (c *Components) Shutdown() {
 	c.Postgres.Close()
 }
 

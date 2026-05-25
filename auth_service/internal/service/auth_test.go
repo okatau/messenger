@@ -65,13 +65,13 @@ func Test_Register(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		setup    func(*mocks.MockUserRepository, *mocks.MockSessionRepository)
+		setup    func(*mocks.MockUserRepository)
 		wantName string
 		wantErr  error
 	}{
 		{
 			name: "success",
-			setup: func(ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
+			setup: func(ur *mocks.MockUserRepository) {
 				ur.EXPECT().GetUserByEmail(mock.Anything, "alice@mail.com").Return((*domain.User)(nil), nil)
 				ur.EXPECT().CreateUser(mock.Anything, "alice", "alice@mail.com", mock.Anything).Return(&user, nil)
 			},
@@ -79,7 +79,7 @@ func Test_Register(t *testing.T) {
 		},
 		{
 			name: "user exists",
-			setup: func(ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
+			setup: func(ur *mocks.MockUserRepository) {
 				ur.EXPECT().GetUserByEmail(mock.Anything, "alice@mail.com").Return(&domain.User{}, nil)
 			},
 			wantName: "alice",
@@ -91,7 +91,7 @@ func Test_Register(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			uMock := &mocks.MockUserRepository{}
 			sMock := &mocks.MockSessionRepository{}
-			tt.setup(uMock, sMock)
+			tt.setup(uMock)
 
 			svc := setupAuthSvc(t, uMock, sMock)
 
@@ -131,7 +131,7 @@ func Test_Login(t *testing.T) {
 			setup: func(ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
 				ur.EXPECT().GetUserByEmail(mock.Anything, aliceEmail).Return(&domain.User{ID: alice, Username: alice, PasswordHash: string(alicePWHash)}, nil)
 				sr.EXPECT().CreateSession(mock.Anything, alice, alice, mock.Anything, mock.Anything).Return(nil)
-				sr.EXPECT().DeleteSessionsByUserID(mock.Anything, alice).Return(([]*domain.Session)(nil), nil)
+				sr.EXPECT().DeleteSessionsByUserID(mock.Anything, alice).Return([]*domain.Session{}, nil)
 			},
 		},
 		{

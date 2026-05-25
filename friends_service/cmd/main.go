@@ -4,21 +4,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"friends_service/internal/components"
-	grpcserver "friends_service/internal/server/grpc"
-	httpserver "friends_service/internal/server/http"
-	"friends_service/pkg/config"
-	"log"
 	"net"
 	"net/http"
 	"os/signal"
 	"syscall"
 	"time"
 
-	pb "friends_service/pkg/friends_pb"
-
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+
+	"friends_service/internal/components"
+	grpcserver "friends_service/internal/server/grpc"
+	httpserver "friends_service/internal/server/http"
+	"friends_service/pkg/config"
+	pb "friends_service/pkg/friends_pb"
+	"friends_service/pkg/service_logger"
 )
 
 func main() {
@@ -32,7 +32,7 @@ func main() {
 
 	comps := components.InitComponents(initCtx, cfg)
 
-	srvHttp := httpserver.New(cfg.ServerConfig, comps.Svc, comps.Logger)
+	srvHTTP := httpserver.New(cfg.ServerConfig, comps.Svc, comps.Logger)
 	grpcServer := grpc.NewServer()
 	pb.RegisterFriendshipServer(grpcServer, grpcserver.New(comps.Svc))
 
@@ -40,13 +40,14 @@ func main() {
 
 	g.Go(func() error {
 		comps.Logger.Info(fmt.Sprintf("listening friends service on %d", cfg.ServerConfig.Port))
-		if err := srvHttp.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := srvHTTP.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return fmt.Errorf("http server: %w", err)
 		}
 		return nil
 	})
 
 	g.Go(func() error {
+		//nolint:noctx // net.Listen completes instantly; gRPC shutdown is handled via GracefulStop
 		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.ServerConfig.GRPCPort))
 		if err != nil {
 			return fmt.Errorf("grpc listen: %w", err)
@@ -61,20 +62,20 @@ func main() {
 	g.Go(func() error {
 		<-gCtx.Done()
 
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
 		grpcServer.GracefulStop()
 
-		if err := srvHttp.Stop(shutdownCtx); err != nil {
+		shutdownCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+
+		if err := srvHTTP.Stop(shutdownCtx); err != nil {
 			return fmt.Errorf("http shutdown: %w", err)
 		}
 
-		comps.Shutdown(shutdownCtx)
+		comps.Shutdown()
 		return nil
 	})
 
 	if err := g.Wait(); err != nil {
-		log.Fatal(err)
+		comps.Logger.Error("errgroup err", service_logger.Err(err))
 	}
 }

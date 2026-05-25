@@ -1,12 +1,13 @@
 package db
 
 import (
-	"chat_service/pkg/config"
 	"context"
 	"fmt"
 	"log"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"chat_service/pkg/config"
 )
 
 func Connect(ctx context.Context, pgcfg config.PostgresConfig) *pgxpool.Pool {

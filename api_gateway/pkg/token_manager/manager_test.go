@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/pem"
 	"log"
 	"log/slog"
@@ -65,7 +66,7 @@ func Test_VerifyAccessToken_Success(t *testing.T) {
 	claims, err := manager.VerifyAccessToken(token)
 	require.NoError(t, err)
 
-	assert.Equal(t, claims.Subject, aliceID)
+	assert.Equal(t, aliceID, claims.Subject)
 }
 
 func Test_VerifyAccessToken_Errors(t *testing.T) {
@@ -110,7 +111,7 @@ func TestNewTokenManager_InvalidPrivateKey(t *testing.T) {
 func TestGenerateAccessToken_Success(t *testing.T) {
 	token, err := manager.GenerateAccessToken(aliceID)
 	require.NoError(t, err)
-	assert.NotEqual(t, token, "")
+	assert.NotNil(t, token)
 }
 
 func TestGenerateAccessToken_ContainsSubject(t *testing.T) {
@@ -137,13 +138,11 @@ func TestGenerateAccessToken_VerifyOnly(t *testing.T) {
 func TestGenerateRefreshToken_Format(t *testing.T) {
 	token, err := manager.GenerateRefreshToken()
 	require.NoError(t, err)
+	assert.Len(t, token, 64)
 
-	assert.Equal(t, len(token), 64)
-	for _, c := range token {
-		if !('0' <= c && c <= '9') && !('a' <= c && c <= 'f') {
-			t.Errorf("token contains non-hex character: %c", c)
-			break
-		}
+	dest := make([]byte, 64)
+	if _, err := hex.Decode(dest, []byte(token)); err != nil {
+		t.Errorf("token contains non-hex character: %s", token)
 	}
 }
 

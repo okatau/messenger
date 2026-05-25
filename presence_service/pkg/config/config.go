@@ -10,21 +10,24 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// ServerConfig holds HTTP/gRPC listen ports and timeout settings for the server.
 type ServerConfig struct {
-	HTTPPort        int           `yaml:"http_port" env-default:"8080"`
+	Port            int           `yaml:"port" env-required:"true"`
 	GRPCPort        int           `yaml:"grpc_port" env-default:"50051"`
 	ReadTimeout     time.Duration `yaml:"read_timeout" env-default:"10s"`
 	WriteTimeout    time.Duration `yaml:"write_timeout" env-default:"10s"`
 	ShutdownTimeout time.Duration `yaml:"shutdown_timeout" env-default:"10s"`
 }
 
-// No prefix needed
+// RedisConfig holds the connection parameters for Redis.
+// Env vars are read without a prefix (REDIS_PASSWORD is the full variable name).
 type RedisConfig struct {
 	Addrs    []string `yaml:"addrs" env-required:"true"`
 	Password string   `env:"REDIS_PASSWORD" env-required:"true"`
 }
 
-// Prefix needed
+// PostgresConfig holds the connection parameters for PostgreSQL.
+// Env vars must be read with a service-specific prefix (e.g. cleanenv.ReadEnv with prefix "POSTGRES_").
 type PostgresConfig struct {
 	Host     string `env:"HOST" env-required:"true"`
 	Port     int    `env:"PORT" env-required:"true"`
@@ -33,6 +36,8 @@ type PostgresConfig struct {
 	DBName   string `env:"DBNAME" env-required:"true"`
 }
 
+// AuthConfig holds JWT key material and token lifetimes.
+// PrivateKeyPEMBase64 is optional: omit it to run the manager in verify-only mode.
 type AuthConfig struct {
 	AccessTokenTTL      time.Duration `yaml:"access_token_ttl" env-default:"15m"`
 	RefreshTokenTTL     time.Duration `yaml:"refresh_token_ttl" env-default:"720h"` // 30 days
@@ -40,6 +45,9 @@ type AuthConfig struct {
 	PrivateKeyPEMBase64 string        `env:"AUTH_PRIVATE_PEM_BASE64"`
 }
 
+// Load reads configuration into T from the .env file and YAML config file whose
+// paths are resolved via -env / -config flags or ENV_PATH / CONFIG_PATH env vars.
+// Calls log.Fatal if any required value is missing or the files cannot be read.
 func Load[T any]() *T {
 	envPath, configPath := fetchPaths()
 
@@ -67,9 +75,7 @@ func Load[T any]() *T {
 	return &cfg
 }
 
-func fetchPaths() (string, string) {
-	var envPath, configPath string
-
+func fetchPaths() (envPath, configPath string) {
 	flag.StringVar(&envPath, "env", "", "path to '.env' file")
 	flag.StringVar(&configPath, "config", "", "path to config file")
 	flag.Parse()

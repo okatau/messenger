@@ -1,14 +1,16 @@
 package handler
 
 import (
-	"friends_service/internal/service"
 	"net/http"
 
 	"github.com/labstack/echo/v5"
+
+	"friends_service/internal/service"
 )
 
 func SearchFriend(svc service.Friendship) echo.HandlerFunc {
 	return func(c *echo.Context) error {
+		//nolint:errcheck // userID sets in friends_service/internal/middleware/extract_userid.go
 		userID := c.Get("userID").(string)
 
 		username := c.QueryParam("username")

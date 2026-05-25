@@ -18,6 +18,7 @@ func LeaveRoom(hub service.Hub) echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid roomId")
 		}
 
+		//nolint:errcheck // userID sets in chat_service/internal/middleware/extract_userid.go
 		userID := c.Get("userID").(string)
 		err := hub.LeaveRoom(c.Request().Context(), userID, roomID)
 		if err != nil {

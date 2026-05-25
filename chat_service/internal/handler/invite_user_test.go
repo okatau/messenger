@@ -84,7 +84,7 @@ func Test_InviteUser(t *testing.T) {
 			name: "internal server error",
 			body: getBody(bobID),
 			setup: func(h *service.MockHub, c *echo.Context) {
-				h.EXPECT().InviteUser(mock.Anything, aliceID, bobID, roomID).Return(dbError)
+				h.EXPECT().InviteUser(mock.Anything, aliceID, bobID, roomID).Return(errDB)
 				c.SetPathValues(echo.PathValues{{Name: "roomId", Value: roomID}})
 			},
 			wantStatus: http.StatusInternalServerError,

@@ -85,7 +85,7 @@ func (a *auth) Login(ctx context.Context, email, password string) (*domain.AuthS
 		return nil, domain.ErrUserNotFound
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+	if err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
 		return nil, domain.ErrUserForbidden
 	}
 

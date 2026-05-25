@@ -2,7 +2,7 @@ name: Build and Push
 
 on:
   push:
-    branches: [main, dev]
+    tags: ['v*.*.*']
   workflow_dispatch:
 
 env:
@@ -63,6 +63,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check branch
+        run: |
+          BRANCH=$(git branch -r --contains ${{ github.sha }} | grep 'origin/main' || true)
+          if [ -z "$BRANCH" ]; then
+            echo "Error: tag must be on main branch"
+            exit 1
+          fi
+
+      - name: Get version
+        id: version
+        run: echo "value=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -82,9 +96,9 @@ jobs:
         with:
           context: ${{ matrix.context }}
           platforms: linux/amd64,linux/arm64
-          push: false
+          push: true
           tags: |
+            ${{ env.REGISTRY }}/${{ matrix.service }}:${{ steps.version.outputs.value }}
             ${{ env.REGISTRY }}/${{ matrix.service }}:latest
-            ${{ env.REGISTRY }}/${{ matrix.service }}:${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}

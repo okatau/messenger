@@ -2,11 +2,12 @@ package grpcserver
 
 import (
 	"context"
-	"friends_service/internal/service"
-	pb "friends_service/pkg/friends_pb"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"friends_service/internal/service"
+	pb "friends_service/pkg/friends_pb"
 )
 
 type Server struct {

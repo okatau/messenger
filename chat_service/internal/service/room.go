@@ -8,6 +8,7 @@ import (
 	"chat_service/internal/domain"
 	"chat_service/internal/pubsub"
 	"chat_service/internal/repository"
+	"chat_service/pkg/service_logger"
 )
 
 type Room interface {
@@ -92,7 +93,7 @@ func (r *room) Broadcast(ctx context.Context, msg *domain.Message) {
 
 func (r *room) Run(ctx context.Context) {
 	const op = "chat.service.room.run"
-	logger := r.logger.With(slog.String("op", op))
+	l := r.logger.With(slog.String("op", op))
 
 	msgCh, unsub := r.ps.Subscribe(ctx, r.channelID())
 	defer unsub()
@@ -100,30 +101,42 @@ func (r *room) Run(ctx context.Context) {
 	for {
 		select {
 		case msg := <-r.in:
-			go r.msgRepo.WriteMessage(ctx, msg)
-			r.ps.Publish(ctx, r.channelID(), msg)
+			go func() {
+				if err := r.msgRepo.WriteMessage(ctx, msg); err != nil {
+					l.Error("error write msg to pg", service_logger.Err(err))
+				}
+			}()
+			if err := r.ps.Publish(ctx, r.channelID(), msg); err != nil {
+				l.Error("error publish message", service_logger.Err(err))
+			}
 
 		case msg, ok := <-msgCh:
 			if !ok {
 				continue
 			}
-			r.sendAll(ctx, msg)
+			r.sendAll(msg)
 
 		case <-ctx.Done():
-			logger.Info("ctx done case", "roomID", r.id)
+			l.Info("ctx done case", "roomID", r.id)
 			return
 		case <-r.stopCh:
-			logger.Info("stop command", "roomID", r.id)
+			l.Info("stop command", "roomID", r.id)
 			return
 		}
 	}
 }
 
-func (r *room) sendAll(ctx context.Context, msg *domain.Message) {
+func (r *room) sendAll(msg *domain.Message) {
+	const op = "chat.service.room.run"
+	l := r.logger.With(slog.String("op", op))
+
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	for _, user := range r.users {
-		user.Write(ctx, msg)
+		err := user.Write(msg)
+		if err != nil {
+			l.Warn("error sending msg", slog.String("msg", err.Error()))
+		}
 	}
 }
 
@@ -137,7 +150,7 @@ func (r *room) Stop() {
 	r.mu.Unlock()
 }
 
-// TODO used only in tests
+// TODO used only in tests.
 func (r *room) GetUsernames() []string {
 	usernames := make([]string, 0, len(r.users))
 	r.mu.RLock()

@@ -133,7 +133,6 @@ type Setup struct {
 	roomID string
 	repo   RoomRepository
 	pool   *pgxpool.Pool
-	redis  *redis.Client
 }
 
 func setup(t *testing.T) *Setup {

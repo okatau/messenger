@@ -1,11 +1,12 @@
 package handlers
 
 import (
-	"api_gateway/internal/components"
 	"log"
 	"net/http/httputil"
 
 	"github.com/labstack/echo/v5"
+
+	"api_gateway/internal/components"
 )
 
 func redirectTo(proxy *httputil.ReverseProxy) echo.HandlerFunc {
@@ -20,11 +21,11 @@ func redirectTo(proxy *httputil.ReverseProxy) echo.HandlerFunc {
 
 func InitAuthEndpoints(
 	auth *echo.Group,
-	targetUrl string,
+	targetURL string,
 	al components.AuthLimits,
 	rl func(limit int) echo.MiddlewareFunc,
 ) {
-	proxy, err := createProxy(targetUrl, "/api/v1/auth")
+	proxy, err := createProxy(targetURL, "/api/v1/auth")
 	if err != nil {
 		log.Fatal(err)
 	}

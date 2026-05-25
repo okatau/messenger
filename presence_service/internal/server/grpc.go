@@ -3,13 +3,14 @@ package server
 import (
 	"context"
 	"errors"
-	"presence_service/internal/domain"
-	"presence_service/internal/service"
-	pb "presence_service/pkg/pb"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"presence_service/internal/domain"
+	"presence_service/internal/service"
+	pb "presence_service/pkg/pb"
 )
 
 type PresenceServer struct {

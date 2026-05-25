@@ -66,7 +66,7 @@ func Test_LeaveRoom(t *testing.T) {
 			name: "internal server error",
 			setup: func(h *service.MockHub, c *echo.Context) {
 				c.SetPathValues(echo.PathValues{{Name: "roomId", Value: roomID}})
-				h.EXPECT().LeaveRoom(mock.Anything, aliceID, roomID).Return(dbError)
+				h.EXPECT().LeaveRoom(mock.Anything, aliceID, roomID).Return(errDB)
 			},
 			wantStatus: http.StatusInternalServerError,
 			wantErr:    true,

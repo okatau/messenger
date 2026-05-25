@@ -2,10 +2,11 @@ package service
 
 import (
 	"context"
+	"log/slog"
+
 	"friends_service/internal/domain"
 	"friends_service/internal/repository"
 	"friends_service/pkg/service_logger"
-	"log/slog"
 )
 
 type Friendship interface {
@@ -94,12 +95,12 @@ func (f *friendship) CancelFriendRequest(ctx context.Context, userID, inviteeID 
 	const op = "service.friendship.cancelfriendrequest"
 	logger := f.logger.With(slog.String("op", op))
 
-	cancelled, err := f.friendshipRepo.CancelFriend(ctx, userID, inviteeID)
+	canceled, err := f.friendshipRepo.CancelFriend(ctx, userID, inviteeID)
 	if err != nil {
 		logger.Error("error reading db", service_logger.Err(err))
 		return err
 	}
-	if !cancelled {
+	if !canceled {
 		return domain.ErrFriendReqNotFound
 	}
 	return nil

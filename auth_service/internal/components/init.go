@@ -20,7 +20,7 @@ type Config struct {
 	Env          string                `env:"ENV" env-default:"local"`
 	Postgres     config.PostgresConfig `env-prefix:"PG_"`
 	Auth         config.AuthConfig
-	ServerConfig config.HTTPConfig `yaml:"http"`
+	ServerConfig config.ServerConfig `yaml:"http"`
 }
 
 type Components struct {
@@ -69,7 +69,7 @@ func InitComponents(ctx context.Context, cfg *Config) *Components {
 	}
 }
 
-func (c *Components) Shutdown(ctx context.Context) {
+func (c *Components) Shutdown() {
 	c.Postgres.Close()
 }
 

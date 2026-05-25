@@ -3,14 +3,15 @@ package httpserver
 import (
 	"context"
 	"fmt"
-	"friends_service/internal/middleware"
-	"friends_service/internal/service"
-	"friends_service/pkg/config"
-	"friends_service/pkg/service_logger"
 	"log/slog"
 	"net/http"
 
 	"github.com/labstack/echo/v5"
+
+	"friends_service/internal/middleware"
+	"friends_service/internal/service"
+	"friends_service/pkg/config"
+	"friends_service/pkg/service_logger"
 )
 
 type Server struct {
@@ -19,7 +20,7 @@ type Server struct {
 }
 
 func New(
-	cfg config.HTTPConfig,
+	cfg config.ServerConfig,
 	svc service.Friendship,
 	logger *slog.Logger,
 ) *Server {

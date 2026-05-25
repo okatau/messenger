@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+
 	"presence_service/internal/domain"
 	"presence_service/internal/repository"
 	"presence_service/pkg/service_logger"

@@ -13,22 +13,25 @@ func RateLimitByIP(limiter *redis_rate.Limiter, logger *slog.Logger, limitRate i
 	limit := redis_rate.PerMinute(limitRate)
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
-			logger := logger.With(slog.String("mw", "rate_limiter"))
+			l := logger.With(slog.String("mw", "rate_limiter"))
 
-			// ip := c.Request().RemoteAddr
 			ip := c.Request().Header.Get("X-Real-IP")
 			if ip == "" {
-				ip, _, _ = net.SplitHostPort(c.Request().RemoteAddr)
+				var err error
+				ip, _, err = net.SplitHostPort(c.Request().RemoteAddr)
+				if err != nil {
+					return echo.NewHTTPError(http.StatusBadRequest, "error parsing ip")
+				}
 			}
 			key := ip + ":" + c.Request().URL.Path
 
 			res, err := limiter.Allow(c.Request().Context(), key, limit)
 			if err != nil {
-				logger.Error("rate limiter redis error", slog.String("err", err.Error()))
+				l.Error("rate limiter redis error", slog.String("err", err.Error()))
 				return echo.NewHTTPError(http.StatusInternalServerError, "error getting limits")
 			}
 			if res.Allowed == 0 {
-				logger.Warn("rate limit exceeded", slog.String("ip", ip))
+				l.Warn("rate limit exceeded", slog.String("ip", ip))
 				return echo.NewHTTPError(http.StatusTooManyRequests, "request limit exceeded")
 			}
 
@@ -41,18 +44,19 @@ func RateLimitByUser(limiter *redis_rate.Limiter, logger *slog.Logger, limitRate
 	limit := redis_rate.PerMinute(limitRate)
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
-			logger := logger.With(slog.String("mw", "rate_limiter"))
+			l := logger.With(slog.String("mw", "rate_limiter"))
 
+			//nolint:errcheck // userID sets in api_gateway/internal/middleware/auth.go
 			userID := c.Get("userID").(string)
 			key := userID + ":" + c.Path()
 
 			res, err := limiter.Allow(c.Request().Context(), key, limit)
 			if err != nil {
-				logger.Error("rate limiter redis error", slog.String("err", err.Error()))
+				l.Error("rate limiter redis error", slog.String("err", err.Error()))
 				return echo.NewHTTPError(http.StatusInternalServerError, "error getting limits")
 			}
 			if res.Allowed == 0 {
-				logger.Warn("rate limit exceeded", slog.String("userID", userID))
+				l.Warn("rate limit exceeded", slog.String("userID", userID))
 				return echo.NewHTTPError(http.StatusTooManyRequests, "request limit exceeded")
 			}
 

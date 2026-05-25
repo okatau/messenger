@@ -1,15 +1,16 @@
 package httpserver
 
 import (
-	"auth_service/internal/service"
-	"auth_service/pkg/config"
-	"auth_service/pkg/service_logger"
 	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
 
 	"github.com/labstack/echo/v5"
+
+	"auth_service/internal/service"
+	"auth_service/pkg/config"
+	"auth_service/pkg/service_logger"
 )
 
 type Server struct {
@@ -17,7 +18,7 @@ type Server struct {
 	logger *slog.Logger
 }
 
-func New(cfg config.HTTPConfig, svc service.Auth, logger *slog.Logger) *Server {
+func New(cfg config.ServerConfig, svc service.Auth, logger *slog.Logger) *Server {
 	router := echo.New()
 	router.Use(service_logger.LoggerMW(logger))
 	registreRoutes(router, svc)

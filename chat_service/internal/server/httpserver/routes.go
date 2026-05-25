@@ -1,13 +1,14 @@
 package httpserver
 
 import (
+	"context"
+
+	"github.com/labstack/echo/v5"
+
 	"chat_service/internal/handler"
 	"chat_service/internal/middleware"
 	"chat_service/internal/service"
 	"chat_service/pkg/token_manager"
-	"context"
-
-	"github.com/labstack/echo/v5"
 )
 
 func registreRoutes(router *echo.Echo, svc service.Hub) {
@@ -22,5 +23,5 @@ func registreRoutes(router *echo.Echo, svc service.Hub) {
 }
 
 func registerWS(ctx context.Context, router *echo.Echo, svc service.Hub, tm *token_manager.TokenManager, whitelist []string) {
-	router.GET("/wss", handler.Connect(svc, tm, ctx, whitelist))
+	router.GET("/wss", handler.Connect(ctx, svc, tm, whitelist))
 }

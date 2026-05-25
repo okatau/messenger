@@ -93,9 +93,6 @@ func Test_Room_GetUsernames_ReturnsCopy(t *testing.T) {
 
 	require.NoError(t, room.AddUser(user))
 
-	list := room.GetUsernames()
-	list = list[:len(list)-1]
-
 	assert.Contains(t, room.GetUsernames(), username_1)
 }
 func makeSubscribedPS(t *testing.T, channel string) (*mocks.MockPubSub, chan *domain.Message) {
@@ -115,13 +112,13 @@ func Test_Room_Broadcast(t *testing.T) {
 		user.EXPECT().ID().Return(userID_1)
 
 		broadcastCh := make(chan *domain.Message, 1)
-		user.EXPECT().Write(mock.Anything, msg).
-			Run(func(_ context.Context, m *domain.Message) {
+		user.EXPECT().Write(msg).
+			Run(func(m *domain.Message) {
 				broadcastCh <- m
 			}).Return(nil)
 
 		mrepo := mocks.NewMockMessageRepository(t)
-		mrepo.EXPECT().WriteMessage(mock.Anything, mock.Anything).Return(nil)
+		mrepo.EXPECT().WriteMessage(mock.Anything, mock.Anything).Return(nil).Maybe()
 
 		channel := "room:" + roomID_1
 

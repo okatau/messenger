@@ -27,7 +27,6 @@ const (
 	sessionTTL = 30 * 24 * time.Hour
 )
 
-// Add alice as user by default
 func startPostgres(t *testing.T) (*pgxpool.Pool, func()) {
 	t.Helper()
 
@@ -51,7 +50,7 @@ func startPostgres(t *testing.T) (*pgxpool.Pool, func()) {
 	}
 
 	runMigrations(t, pool)
-	aliceID, err = createUser(t, ctx, pool, aliceName, aliceEmail, alicePasswordHash)
+	aliceID, err = createUser(ctx, t, pool, aliceName, aliceEmail, alicePasswordHash)
 	require.NoError(t, err)
 
 	return pool, func() {
@@ -85,13 +84,13 @@ func runMigrations(t *testing.T, pool *pgxpool.Pool) {
 	}
 }
 
-func createSession(t *testing.T, ctx context.Context, repo SessionRepository, userID, name, refreshToken string) {
+func createSession(ctx context.Context, t *testing.T, repo SessionRepository, userID, name, refreshToken string) {
 	t.Helper()
 	err := repo.CreateSession(ctx, userID, name, refreshToken, time.Now().Add(sessionTTL))
 	require.NoError(t, err)
 }
 
-func createUser(t *testing.T, ctx context.Context, pool *pgxpool.Pool, name, email, passwordHash string) (string, error) {
+func createUser(ctx context.Context, t *testing.T, pool *pgxpool.Pool, name, email, passwordHash string) (string, error) {
 	t.Helper()
 	uRepo := NewUserRepository(pool)
 	user, err := uRepo.CreateUser(ctx, name, email, passwordHash)
@@ -124,7 +123,7 @@ func Test_DeleteSession(t *testing.T) {
 	refreshToken, _ := generateRefreshToken()
 	ctx := context.Background()
 
-	createSession(t, ctx, sRepo, aliceID, aliceName, refreshToken)
+	createSession(ctx, t, sRepo, aliceID, aliceName, refreshToken)
 
 	session, err := sRepo.DeleteSession(ctx, refreshToken)
 	require.NoError(t, err)
@@ -152,7 +151,7 @@ func Test_DeleteSessionsByUserID(t *testing.T) {
 	refreshToken, _ := generateRefreshToken()
 	ctx := context.Background()
 
-	createSession(t, ctx, sRepo, aliceID, aliceName, refreshToken)
+	createSession(ctx, t, sRepo, aliceID, aliceName, refreshToken)
 
 	session, err := sRepo.DeleteSessionsByUserID(ctx, aliceID)
 	require.NoError(t, err)

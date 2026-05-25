@@ -1,8 +1,9 @@
 package pubsub
 
 import (
-	"chat_service/internal/domain"
 	"context"
+
+	"chat_service/internal/domain"
 )
 
 type PubSub interface {

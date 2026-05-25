@@ -26,9 +26,9 @@ type Config struct {
 	Postgres           config.PostgresConfig `env-prefix:"PG_"`
 	Redis              config.RedisConfig
 	Auth               config.AuthConfig
-	ServerConfig       config.HTTPConfig `yaml:"http"`
-	OriginWhitelist    []string          `yaml:"origin_whitelist"`
-	FriendsGRPCAddress string            `yaml:"friends_grpc_addr" env:"FRIENDS_GRPC_ADDR" env-required:"true"`
+	ServerConfig       config.ServerConfig `yaml:"http"`
+	OriginWhitelist    []string            `yaml:"origin_whitelist"`
+	FriendsGRPCAddress string              `yaml:"friends_grpc_addr" env:"FRIENDS_GRPC_ADDR" env-required:"true"`
 }
 
 type Components struct {
@@ -40,7 +40,7 @@ type Components struct {
 	grpcConn     *grpc.ClientConn
 }
 
-func InitComponents(ctx context.Context, hubCtx context.Context, cfg *Config) *Components {
+func InitComponents(ctx, hubCtx context.Context, cfg *Config) *Components {
 	pool := db.Connect(ctx, cfg.Postgres)
 	if err := db.Run(cfg.Postgres); err != nil {
 		log.Fatal("migration failed:", err)
@@ -93,9 +93,13 @@ func InitComponents(ctx context.Context, hubCtx context.Context, cfg *Config) *C
 	}
 }
 
-func (c *Components) Shutdown(ctx context.Context) {
+func (c *Components) Shutdown() {
 	c.Postgres.Close()
-	c.Redis.Close()
-	c.Hub.Shutdown(ctx)
-	c.grpcConn.Close()
+	if err := c.Redis.Close(); err != nil {
+		c.Logger.Error("error closing redis conn", service_logger.Err(err))
+	}
+	c.Hub.Shutdown()
+	if err := c.grpcConn.Close(); err != nil {
+		c.Logger.Error("error closing grpc conn", service_logger.Err(err))
+	}
 }

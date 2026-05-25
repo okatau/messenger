@@ -4,13 +4,14 @@ import (
 	"context"
 	"log"
 	"log/slog"
+	"time"
+
+	"github.com/redis/go-redis/v9"
+
 	"presence_service/internal/repository"
 	"presence_service/internal/service"
 	"presence_service/pkg/config"
 	"presence_service/pkg/service_logger"
-	"time"
-
-	"github.com/redis/go-redis/v9"
 )
 
 type Config struct {
@@ -47,6 +48,7 @@ func InitComponents(ctx context.Context, cfg *Config) *Components {
 	}
 }
 
-func (c *Components) Shutdown(ctx context.Context) {
+func (c *Components) Shutdown() {
+	//nolint:errcheck // no need to check err
 	c.Rdb.Close()
 }

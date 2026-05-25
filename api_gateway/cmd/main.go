@@ -1,12 +1,6 @@
 package main
 
 import (
-	"api_gateway/internal/components"
-	"api_gateway/internal/handlers"
-	"api_gateway/internal/middleware"
-	rate_limiter "api_gateway/internal/service"
-	"api_gateway/pkg/config"
-	"api_gateway/pkg/service_logger"
 	"context"
 	"fmt"
 	"log"
@@ -17,6 +11,13 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v5"
+
+	"api_gateway/internal/components"
+	"api_gateway/internal/handlers"
+	"api_gateway/internal/middleware"
+	rate_limiter "api_gateway/internal/service"
+	"api_gateway/pkg/config"
+	"api_gateway/pkg/service_logger"
 )
 
 func main() {

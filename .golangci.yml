@@ -1,0 +1,162 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    # Correctness
+    - errcheck        # unhandled errors
+    - govet           # go vet checks
+    - staticcheck     # comprehensive static analysis
+    - ineffassign     # assignments never used
+    - bodyclose       # http response body not closed
+    - sqlclosecheck   # sql.Rows/Stmt not closed
+    - noctx           # http.NewRequest without context
+    - contextcheck    # context not passed down the call chain
+    - exhaustive      # exhaustive switch on enums
+    - nilerr          # return nil and error simultaneously
+    - reassign        # reassigning top-level package vars
+
+    # Style
+    - revive          # drop-in golint replacement
+    - gocritic        # opinionated style/perf/diagnostic checks
+    - misspell        # spelling mistakes in comments/strings
+    - godot           # comments should end with a period
+    - nolintlint      # malformed nolint directives
+    - testifylint     # testify assertion best practices
+    - tparallel       # t.Parallel() missing in subtests
+    - unconvert       # unnecessary type conversions
+    - unparam         # always-same function parameters
+    - usestdlibvars   # use stdlib constants instead of raw strings
+
+    # Performance / Complexity
+    - prealloc        # suggest slice pre-allocation
+    - funlen          # function length
+    - cyclop          # cyclomatic complexity
+    - gocognit        # cognitive complexity
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment  # too noisy; use if performance-critical
+
+    revive:
+      rules:
+        - name: exported
+          arguments:
+            - disableStutteringCheck
+        - name: unexported-return
+        - name: var-naming
+        - name: error-return
+        - name: error-strings
+        - name: if-return
+        - name: increment-decrement
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unused-parameter
+        - name: unreachable-code
+        - name: redefines-builtin-id
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+      disabled-checks:
+        - hugeParam       # too noisy without fieldalignment
+        - rangeValCopy    # same
+
+    cyclop:
+      max-complexity: 15
+      package-average: 10.0
+
+    funlen:
+      lines: 80
+      statements: 50
+      ignore-comments: true
+
+    gocognit:
+      min-complexity: 20
+
+    testifylint:
+      enable-all: true
+
+    godot:
+      scope: declarations   # only exported declarations
+
+    misspell:
+      locale: US
+
+    exhaustive:
+      default-signifies-exhaustive: true
+
+  exclusions:
+    rules:
+      # Tests may be longer and have looser error handling
+      - path: _test\.go
+        linters:
+          - funlen
+          - cyclop
+          - gocognit
+          - errcheck
+          - noctx
+          - contextcheck
+
+      # Generated mock files — skip everything
+      - path: (internal/mocks|internal/handler/mocks|internal/service/mocks)/
+        linters:
+          - revive
+          - gocritic
+          - funlen
+          - cyclop
+          - gocognit
+          - godot
+          - errcheck
+          - unparam
+          - unused
+          - usestdlibvars
+
+      # Colocated mock files (mock_*.go pattern)
+      - path: mock_.*\.go
+        linters:
+          - revive
+          - gocritic
+          - godot
+          - errcheck
+          - unparam
+          - usestdlibvars
+
+      # Exported symbols without comments are fine in internal packages
+      - path: internal/
+        linters:
+          - revive
+        text: "exported .* should have comment"
+
+      # main() can be long
+      - path: cmd/
+        linters:
+          - funlen
+
+formatters:
+  enable:
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - auth_service
+        - chat_service
+        - friends_service
+        - api_gateway
+        - presence_service
+
+run:
+  timeout: 5m
+  tests: false

@@ -3,17 +3,17 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"os/signal"
-	"presence_service/internal/components"
-	"presence_service/internal/server"
 	"syscall"
 
+	"google.golang.org/grpc"
+
+	"presence_service/internal/components"
+	"presence_service/internal/server"
 	"presence_service/pkg/config"
 	pb "presence_service/pkg/pb"
-
-	"google.golang.org/grpc"
+	"presence_service/pkg/service_logger"
 )
 
 func main() {
@@ -30,18 +30,16 @@ func main() {
 	grpcServer := grpc.NewServer()
 	pb.RegisterPresenceServer(grpcServer, server.NewPresenceServer(comps.Svc))
 
+	//nolint:noctx // net.Listen completes instantly; gRPC shutdown is handled via GracefulStop
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.ServerConfig.GRPCPort))
 	if err != nil {
-		log.Fatal("grpc listen: %w", err)
+		comps.Logger.Error("error net.Listen", service_logger.Err(err))
 	}
 	comps.Logger.Info(fmt.Sprintf("listening grpc friends service on %d", cfg.ServerConfig.GRPCPort))
 	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatal("grpc server: %w", err)
+		comps.Logger.Error("error grpc listen", service_logger.Err(err))
 	}
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, cfg.ServerConfig.ShutdownTimeout)
-	defer shutdownCancel()
-
 	grpcServer.GracefulStop()
-	comps.Shutdown(shutdownCtx)
+	comps.Shutdown()
 }

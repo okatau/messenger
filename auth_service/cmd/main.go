@@ -38,6 +38,12 @@ func main() {
 	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, cfg.ServerConfig.ShutdownTimeout)
 	defer shutdownCancel()
 
-	srv.Stop(shutdownCtx)
-	comps.Shutdown(shutdownCtx)
+	err := srv.Stop(shutdownCtx)
+	if err != nil {
+		comps.Logger.Error("error stopping server: %v", service_logger.Err(err))
+	}
+	comps.Shutdown()
+	if err != nil {
+		comps.Logger.Error("error shutting down comps: %v", service_logger.Err(err))
+	}
 }

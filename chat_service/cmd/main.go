@@ -1,15 +1,16 @@
 package main
 
 import (
-	"chat_service/internal/components"
-	"chat_service/internal/server/httpserver"
-	"chat_service/pkg/config"
-	"chat_service/pkg/service_logger"
 	"context"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"chat_service/internal/components"
+	"chat_service/internal/server/httpserver"
+	"chat_service/pkg/config"
+	"chat_service/pkg/service_logger"
 )
 
 func main() {
@@ -49,6 +50,9 @@ func main() {
 	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, cfg.ServerConfig.ShutdownTimeout)
 	defer shutdownCancel()
 
-	srv.Stop(shutdownCtx)
-	comps.Shutdown(shutdownCtx)
+	err := srv.Stop(shutdownCtx)
+	if err != nil {
+		comps.Logger.Error("error shutting down server", service_logger.Err(err))
+	}
+	comps.Shutdown()
 }

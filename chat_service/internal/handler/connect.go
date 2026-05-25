@@ -21,15 +21,12 @@ func getUpgrader(whitelist []string) websocket.Upgrader {
 	return websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
 			origin := r.Header.Get("Origin")
-			if slices.Contains(whitelist, origin) {
-				return true
-			}
-			return false
+			return slices.Contains(whitelist, origin)
 		},
 	}
 }
 
-func Connect(hub service.Hub, manager *token_manager.TokenManager, ctx context.Context, whitelist []string) echo.HandlerFunc {
+func Connect(ctx context.Context, hub service.Hub, manager *token_manager.TokenManager, whitelist []string) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		upgrader := getUpgrader(whitelist)
 		conn, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
@@ -39,8 +36,8 @@ func Connect(hub service.Hub, manager *token_manager.TokenManager, ctx context.C
 
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
-			conn.Close()
-			return nil
+			conn.Close() //nolint:errcheck  // connection is already in error state, close error is irrelevant
+			return nil   //nolint:nilerr // connection read error is expected on client disconnect
 		}
 
 		var handshake struct {
@@ -48,34 +45,34 @@ func Connect(hub service.Hub, manager *token_manager.TokenManager, ctx context.C
 			RoomID string `json:"roomId"`
 		}
 
-		if err := json.Unmarshal(msg, &handshake); err != nil {
-			conn.WriteMessage(websocket.CloseMessage,
-				websocket.FormatCloseMessage(websocket.CloseInvalidFramePayloadData, "invalid handshake data"))
-			conn.Close()
-			return nil
+		if err = json.Unmarshal(msg, &handshake); err != nil {
+			closeWSConn(conn, websocket.CloseInvalidFramePayloadData, "invalid handshake data")
+			return nil //nolint:nilerr // invalid handshake: close message sent to client, error is not useful to caller
 		}
 
 		claims, err := manager.VerifyAccessToken(handshake.Token)
 		if err != nil {
-			conn.WriteMessage(websocket.CloseMessage,
-				websocket.FormatCloseMessage(wsCodeUnauthorized, "unauthorized"))
-			conn.Close()
-			return nil
+			closeWSConn(conn, wsCodeUnauthorized, "unauthorized")
+			return nil //nolint:nilerr // unauthorized: close message sent to client, error is not useful to caller
 		}
 
 		if err := hub.Connect(ctx, claims.Subject, conn); err != nil {
-			code := websocket.CloseInternalServerErr
-			msg := "internal server error"
+			code, msg := websocket.CloseInternalServerErr, "internal server error"
 			if errors.Is(err, domain.ErrUserNotFound) {
-				code = websocket.CloseNormalClosure
-				msg = "user not found"
+				code, msg = websocket.CloseNormalClosure, "user not found"
 			}
-			conn.WriteMessage(websocket.CloseMessage,
-				websocket.FormatCloseMessage(code, msg))
-			conn.Close()
-			return nil
+			closeWSConn(conn, code, msg)
+			return nil // hub connect error handled: close message sent to client with appropriate code
 		}
 
 		return nil
 	}
+}
+
+func closeWSConn(conn *websocket.Conn, code int, text string) {
+	//nolint:errcheck // best-effort close notification, error not actionable
+	conn.WriteMessage(websocket.CloseMessage,
+		websocket.FormatCloseMessage(code, text))
+	//nolint:errcheck // connection is being closed, error is not actionable
+	conn.Close()
 }

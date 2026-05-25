@@ -178,8 +178,8 @@ func (_c *MockHub_CreateRoom_Call) RunAndReturn(run func(ctx context.Context, ro
 }
 
 // Disconnect provides a mock function for the type MockHub
-func (_mock *MockHub) Disconnect(ctx context.Context, userID string) (User, error) {
-	ret := _mock.Called(ctx, userID)
+func (_mock *MockHub) Disconnect(userID string) (User, error) {
+	ret := _mock.Called(userID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Disconnect")
@@ -187,18 +187,18 @@ func (_mock *MockHub) Disconnect(ctx context.Context, userID string) (User, erro
 
 	var r0 User
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (User, error)); ok {
-		return returnFunc(ctx, userID)
+	if returnFunc, ok := ret.Get(0).(func(string) (User, error)); ok {
+		return returnFunc(userID)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) User); ok {
-		r0 = returnFunc(ctx, userID)
+	if returnFunc, ok := ret.Get(0).(func(string) User); ok {
+		r0 = returnFunc(userID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(User)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = returnFunc(ctx, userID)
+	if returnFunc, ok := ret.Get(1).(func(string) error); ok {
+		r1 = returnFunc(userID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -211,25 +211,19 @@ type MockHub_Disconnect_Call struct {
 }
 
 // Disconnect is a helper method to define mock.On call
-//   - ctx context.Context
 //   - userID string
-func (_e *MockHub_Expecter) Disconnect(ctx interface{}, userID interface{}) *MockHub_Disconnect_Call {
-	return &MockHub_Disconnect_Call{Call: _e.mock.On("Disconnect", ctx, userID)}
+func (_e *MockHub_Expecter) Disconnect(userID interface{}) *MockHub_Disconnect_Call {
+	return &MockHub_Disconnect_Call{Call: _e.mock.On("Disconnect", userID)}
 }
 
-func (_c *MockHub_Disconnect_Call) Run(run func(ctx context.Context, userID string)) *MockHub_Disconnect_Call {
+func (_c *MockHub_Disconnect_Call) Run(run func(userID string)) *MockHub_Disconnect_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
+		var arg0 string
 		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 string
-		if args[1] != nil {
-			arg1 = args[1].(string)
+			arg0 = args[0].(string)
 		}
 		run(
 			arg0,
-			arg1,
 		)
 	})
 	return _c
@@ -240,7 +234,7 @@ func (_c *MockHub_Disconnect_Call) Return(user User, err error) *MockHub_Disconn
 	return _c
 }
 
-func (_c *MockHub_Disconnect_Call) RunAndReturn(run func(ctx context.Context, userID string) (User, error)) *MockHub_Disconnect_Call {
+func (_c *MockHub_Disconnect_Call) RunAndReturn(run func(userID string) (User, error)) *MockHub_Disconnect_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -594,8 +588,8 @@ func (_c *MockHub_LeaveRoom_Call) RunAndReturn(run func(ctx context.Context, use
 }
 
 // Shutdown provides a mock function for the type MockHub
-func (_mock *MockHub) Shutdown(ctx context.Context) {
-	_mock.Called(ctx)
+func (_mock *MockHub) Shutdown() {
+	_mock.Called()
 	return
 }
 
@@ -605,20 +599,13 @@ type MockHub_Shutdown_Call struct {
 }
 
 // Shutdown is a helper method to define mock.On call
-//   - ctx context.Context
-func (_e *MockHub_Expecter) Shutdown(ctx interface{}) *MockHub_Shutdown_Call {
-	return &MockHub_Shutdown_Call{Call: _e.mock.On("Shutdown", ctx)}
+func (_e *MockHub_Expecter) Shutdown() *MockHub_Shutdown_Call {
+	return &MockHub_Shutdown_Call{Call: _e.mock.On("Shutdown")}
 }
 
-func (_c *MockHub_Shutdown_Call) Run(run func(ctx context.Context)) *MockHub_Shutdown_Call {
+func (_c *MockHub_Shutdown_Call) Run(run func()) *MockHub_Shutdown_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		run(
-			arg0,
-		)
+		run()
 	})
 	return _c
 }
@@ -628,7 +615,7 @@ func (_c *MockHub_Shutdown_Call) Return() *MockHub_Shutdown_Call {
 	return _c
 }
 
-func (_c *MockHub_Shutdown_Call) RunAndReturn(run func(ctx context.Context)) *MockHub_Shutdown_Call {
+func (_c *MockHub_Shutdown_Call) RunAndReturn(run func()) *MockHub_Shutdown_Call {
 	_c.Run(run)
 	return _c
 }

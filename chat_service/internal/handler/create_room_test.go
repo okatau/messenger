@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	dbError  = errors.New("db down")
+	errDB    = errors.New("db down")
 	aliceID  = "aliceid"
 	bobID    = "bobid"
 	roomID   = "roomid"
@@ -62,7 +62,7 @@ func Test_CreateRoom(t *testing.T) {
 			name: "internal server error",
 			body: fmt.Sprintf(`{"name": "%s"}`, roomName),
 			setup: func(h *service.MockHub) {
-				h.EXPECT().CreateRoom(mock.Anything, roomName, aliceID).Return((*domain.Room)(nil), dbError)
+				h.EXPECT().CreateRoom(mock.Anything, roomName, aliceID).Return((*domain.Room)(nil), errDB)
 			},
 			wantStatus: http.StatusInternalServerError,
 			wantErr:    true,

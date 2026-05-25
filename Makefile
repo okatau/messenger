@@ -63,4 +63,21 @@ push-prod:
 
 release-prod: build-prod push-prod
 
+SERVICES = auth_service chat_service friends_service api_gateway presence_service
+
+lint:
+	@for svc in $(SERVICES); do \
+		echo "==> $$svc"; \
+		cd $$svc && golangci-lint run --config ../.golangci.yml ./... && cd ..; \
+	done
+
+lint-%:
+	cd $* && golangci-lint run --config ../.golangci.yml ./...
+
+lint-fix:
+	@for svc in $(SERVICES); do \
+		echo "==> $$svc"; \
+		cd $$svc && golangci-lint run --config ../.golangci.yml --fix ./... && cd ..; \
+	done
+
 .DEFAULT_GOAL := help

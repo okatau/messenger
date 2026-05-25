@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"api_gateway/pkg/token_manager"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -17,6 +16,8 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"api_gateway/pkg/token_manager"
 )
 
 var accessTokenTTL = 15 * time.Minute
@@ -32,7 +33,8 @@ func newContext(method, target, body string) (*echo.Echo, *echo.Context, *httpte
 	req := httptest.NewRequest(method, target, reqBody)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
-	return e, e.NewContext(req, rec), rec
+	c := e.NewContext(req, rec)
+	return e, c, rec
 }
 
 func setupTokenManager(t *testing.T) *token_manager.TokenManager {

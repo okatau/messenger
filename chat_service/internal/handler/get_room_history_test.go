@@ -71,7 +71,7 @@ func Test_GetRoomHistory(t *testing.T) {
 		{
 			name: "internal server error",
 			setup: func(h *service.MockHub, c *echo.Context) {
-				h.EXPECT().GetRoomHistory(mock.Anything, aliceID, roomID, time.Time{}).Return(([]*domain.Message)(nil), dbError)
+				h.EXPECT().GetRoomHistory(mock.Anything, aliceID, roomID, time.Time{}).Return(([]*domain.Message)(nil), errDB)
 				c.SetPathValues(echo.PathValues{{Name: "roomId", Value: roomID}})
 			},
 			wantStatus: http.StatusInternalServerError,

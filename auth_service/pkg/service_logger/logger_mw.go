@@ -8,15 +8,18 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
+// LoggerMW returns an Echo middleware that logs every request with method, path,
+// remote addr, user agent, request ID, status code, response size, and duration.
+// 4xx errors are logged at Warn level, 5xx and handler errors at Error level.
 func LoggerMW(logger *slog.Logger) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		const op = "middleware.logger"
-		logger := logger.With(slog.String("op", op))
+		l := logger.With(slog.String("op", op))
 
 		return func(c *echo.Context) error {
 			req := c.Request()
 
-			entry := logger.With(
+			entry := l.With(
 				slog.String("method", req.Method),
 				slog.String("path", req.URL.Path),
 				slog.String("remote_addr", req.RemoteAddr),

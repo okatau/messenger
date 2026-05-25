@@ -1,9 +1,6 @@
 package components
 
 import (
-	"api_gateway/pkg/config"
-	"api_gateway/pkg/service_logger"
-	"api_gateway/pkg/token_manager"
 	"context"
 	"encoding/base64"
 	"log"
@@ -11,14 +8,18 @@ import (
 
 	"github.com/go-redis/redis_rate/v10"
 	"github.com/redis/go-redis/v9"
+
+	"api_gateway/pkg/config"
+	"api_gateway/pkg/service_logger"
+	"api_gateway/pkg/token_manager"
 )
 
 type Config struct {
 	Env          string `env:"ENV" env-default:"local"`
 	Redis        config.RedisConfig
 	Auth         config.AuthConfig
-	ServerConfig config.HTTPConfig `yaml:"http"`
-	RateLimits   Limits            `yaml:"limits"`
+	ServerConfig config.ServerConfig `yaml:"http"`
+	RateLimits   Limits              `yaml:"limits"`
 
 	AuthAddr    string `yaml:"auth_addr" env-default:"http://auth-local:8081"`
 	ChatAddr    string `yaml:"chat_addr" env-default:"http://chat-local:8082"`
@@ -85,7 +86,3 @@ func InitComponents(ctx context.Context, cfg *Config) *Components {
 		Logger:       logger,
 	}
 }
-
-// func (c *Components) Shutdown(ctx context.Context) {
-// 	// c.Postgres.Close()
-// }

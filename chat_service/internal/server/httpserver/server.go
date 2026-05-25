@@ -1,16 +1,17 @@
 package httpserver
 
 import (
-	"chat_service/internal/service"
-	"chat_service/pkg/config"
-	"chat_service/pkg/service_logger"
-	"chat_service/pkg/token_manager"
 	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
 
 	"github.com/labstack/echo/v5"
+
+	"chat_service/internal/service"
+	"chat_service/pkg/config"
+	"chat_service/pkg/service_logger"
+	"chat_service/pkg/token_manager"
 )
 
 type Server struct {
@@ -20,7 +21,7 @@ type Server struct {
 
 func New(
 	ctx context.Context,
-	cfg config.HTTPConfig,
+	cfg config.ServerConfig,
 	whitelist []string,
 	svc service.Hub,
 	logger *slog.Logger,
@@ -29,7 +30,7 @@ func New(
 	router := echo.New()
 	router.Use(service_logger.LoggerMW(logger))
 
-	registreRoutes(router, svc)
+	registreRoutes(router, svc) //nolint:contextcheck // no need extra context
 	registerWS(ctx, router, svc, tm, whitelist)
 
 	return &Server{

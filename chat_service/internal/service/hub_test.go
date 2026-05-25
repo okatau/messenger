@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	dbError = errors.New("db down")
+	errDB = errors.New("db down")
 )
 
 // newNopPubSub returns a PubSub mock whose Subscribe may be called any number of times.
@@ -83,9 +83,9 @@ func Test_Hub_Connect(t *testing.T) {
 				userRepo *mocks.MockUserRepository,
 				roomRepo *mocks.MockRoomRepository,
 			) {
-				userRepo.EXPECT().GetUserByID(mock.Anything, userID_1).Return((*domain.User)(nil), dbError)
+				userRepo.EXPECT().GetUserByID(mock.Anything, userID_1).Return((*domain.User)(nil), errDB)
 			},
-			wantError: dbError,
+			wantError: errDB,
 		},
 		{
 			name: "roomRepo error",
@@ -94,9 +94,9 @@ func Test_Hub_Connect(t *testing.T) {
 				roomRepo *mocks.MockRoomRepository,
 			) {
 				userRepo.EXPECT().GetUserByID(mock.Anything, userID_1).Return(&domain.User{ID: userID_1, Username: username_1}, nil)
-				roomRepo.EXPECT().GetRoomsByUserID(mock.Anything, userID_1).Return(([]*domain.Room)(nil), dbError)
+				roomRepo.EXPECT().GetRoomsByUserID(mock.Anything, userID_1).Return(([]*domain.Room)(nil), errDB)
 			},
-			wantError: dbError,
+			wantError: errDB,
 		},
 	}
 
@@ -132,7 +132,7 @@ func Test_Hub_Disconnect(t *testing.T) {
 		h := newHub(t, uRepo, rRepo, mRepo, fClientMock)
 		connectUser(t, h, uRepo, rRepo, userID_1, username_1, []*domain.Room{{ID: roomID_1}})
 
-		_, err := h.Disconnect(t.Context(), userID_1)
+		_, err := h.Disconnect(userID_1)
 		require.NoError(t, err)
 	})
 
@@ -144,7 +144,7 @@ func Test_Hub_Disconnect(t *testing.T) {
 
 		h := newHub(t, uRepo, rRepo, mRepo, fClientMock)
 
-		dUser, err := h.Disconnect(t.Context(), "unknown")
+		dUser, err := h.Disconnect("unknown")
 		assert.ErrorIs(t, err, domain.ErrUserNotFound)
 		assert.Nil(t, dUser)
 	})
@@ -158,7 +158,7 @@ func Test_Hub_Disconnect(t *testing.T) {
 		h := newHub(t, uRepo, rRepo, mRepo, fClientMock)
 		connectUser(t, h, uRepo, rRepo, userID_1, username_1, []*domain.Room{{ID: roomID_1}})
 
-		_, err := h.Disconnect(t.Context(), userID_1)
+		_, err := h.Disconnect(userID_1)
 		require.NoError(t, err)
 	})
 }
@@ -321,7 +321,7 @@ func Test_Hub_LeaveRoom(t *testing.T) {
 		fClientMock := mocks.NewMockFriendshipClient(t)
 
 		h := newHub(t, uRepo, rRepo, mRepo, fClientMock)
-		rRepo.EXPECT().IsMember(mock.Anything, userID_1, roomID_1).Return(false, dbError)
+		rRepo.EXPECT().IsMember(mock.Anything, userID_1, roomID_1).Return(false, errDB)
 
 		err := h.LeaveRoom(t.Context(), userID_1, roomID_1)
 		assert.Error(t, err)
@@ -335,7 +335,7 @@ func Test_Hub_LeaveRoom(t *testing.T) {
 
 		h := newHub(t, uRepo, rRepo, mRepo, fClientMock)
 		rRepo.EXPECT().IsMember(mock.Anything, userID_1, roomID_1).Return(true, nil)
-		rRepo.EXPECT().RemoveUser(mock.Anything, userID_1, roomID_1).Return(dbError)
+		rRepo.EXPECT().RemoveUser(mock.Anything, userID_1, roomID_1).Return(errDB)
 
 		err := h.LeaveRoom(t.Context(), userID_1, roomID_1)
 		assert.Error(t, err)
@@ -365,7 +365,7 @@ func Test_Hub_CreateRoom(t *testing.T) {
 		fClientMock := mocks.NewMockFriendshipClient(t)
 
 		h := newHub(t, uRepo, rRepo, mRepo, fClientMock)
-		rRepo.EXPECT().CreateRoom(mock.Anything, "general", userID_1).Return((*domain.Room)(nil), dbError)
+		rRepo.EXPECT().CreateRoom(mock.Anything, "general", userID_1).Return((*domain.Room)(nil), errDB)
 
 		room, err := h.CreateRoom(t.Context(), "general", userID_1)
 		assert.Error(t, err)
@@ -395,7 +395,7 @@ func Test_Hub_GetRoomHistory(t *testing.T) {
 		fClientMock := mocks.NewMockFriendshipClient(t)
 
 		h := newHub(t, uRepo, rRepo, mRepo, fClientMock)
-		rRepo.EXPECT().IsMember(mock.Anything, userID_1, roomID_1).Return(false, dbError)
+		rRepo.EXPECT().IsMember(mock.Anything, userID_1, roomID_1).Return(false, errDB)
 
 		msgs, err := h.GetRoomHistory(t.Context(), userID_1, roomID_1, time.Time{})
 		assert.Error(t, err)
@@ -459,7 +459,7 @@ func Test_Hub_GetRoomsByUser(t *testing.T) {
 		fClientMock := mocks.NewMockFriendshipClient(t)
 
 		h := newHub(t, uRepo, rRepo, mRepo, fClientMock)
-		rRepo.EXPECT().GetRoomsByUserID(mock.Anything, userID_1).Return(([]*domain.Room)(nil), dbError)
+		rRepo.EXPECT().GetRoomsByUserID(mock.Anything, userID_1).Return(([]*domain.Room)(nil), errDB)
 
 		rooms, err := h.GetRoomsByUser(t.Context(), userID_1)
 		assert.Error(t, err)
@@ -476,7 +476,7 @@ func Test_Hub_Shutdown(t *testing.T) {
 
 		h := newHub(t, uRepo, rRepo, mRepo, fClientMock)
 
-		assert.NotPanics(t, func() { h.Shutdown(t.Context()) })
+		assert.NotPanics(t, func() { h.Shutdown() })
 	})
 
 	t.Run("stops connected users and waits", func(t *testing.T) {
@@ -490,7 +490,7 @@ func Test_Hub_Shutdown(t *testing.T) {
 
 		done := make(chan struct{})
 		go func() {
-			h.Shutdown(t.Context())
+			h.Shutdown()
 			close(done)
 		}()
 

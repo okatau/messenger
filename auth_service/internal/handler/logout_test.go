@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"auth_service/internal/handler/mocks"
 	"net/http"
 	"testing"
 
@@ -9,6 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"auth_service/internal/handler/mocks"
 )
 
 func Test_Logout(t *testing.T) {

@@ -1,11 +1,12 @@
 package middleware
 
 import (
-	"api_gateway/pkg/token_manager"
 	"net/http"
 	"strings"
 
 	"github.com/labstack/echo/v5"
+
+	"api_gateway/pkg/token_manager"
 )
 
 func Auth(manager *token_manager.TokenManager) echo.MiddlewareFunc {

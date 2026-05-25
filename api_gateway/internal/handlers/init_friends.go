@@ -1,20 +1,21 @@
 package handlers
 
 import (
-	"api_gateway/internal/components"
 	"log"
 
 	"github.com/labstack/echo/v5"
+
+	"api_gateway/internal/components"
 )
 
 func InitFriendsEndpoints(
 	friends *echo.Group,
-	targetUrl string,
+	targetURL string,
 	fl components.FriendsLimits,
 	rl func(limit int) echo.MiddlewareFunc,
 	auth echo.MiddlewareFunc,
 ) {
-	proxy, err := createProxy(targetUrl, "/api/v1/friends")
+	proxy, err := createProxy(targetURL, "/api/v1/friends")
 	if err != nil {
 		log.Fatal(err)
 	}

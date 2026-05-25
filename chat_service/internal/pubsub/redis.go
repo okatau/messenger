@@ -1,11 +1,13 @@
 package pubsub
 
 import (
-	"chat_service/internal/domain"
 	"context"
 	"encoding/json"
+	"log"
 
 	"github.com/redis/go-redis/v9"
+
+	"chat_service/internal/domain"
 )
 
 type pubsub struct {
@@ -16,7 +18,7 @@ func NewPubSub(rdb redis.UniversalClient) PubSub {
 	return &pubsub{rdb: rdb}
 }
 
-func (ps *pubsub) Subscribe(ctx context.Context, channel string) (chan *domain.Message, func()) {
+func (ps *pubsub) Subscribe(ctx context.Context, channel string) (messages chan *domain.Message, unsubscribe func()) {
 	pubsub := ps.rdb.Subscribe(ctx, channel)
 	out := make(chan *domain.Message, 64)
 	go func() {
@@ -44,7 +46,11 @@ func (ps *pubsub) Subscribe(ctx context.Context, channel string) (chan *domain.M
 		}
 	}()
 
-	return out, func() { pubsub.Close() }
+	return out, func() {
+		if err := pubsub.Close(); err != nil {
+			log.Printf("error closing conn: %v", err)
+		}
+	}
 }
 
 func (ps *pubsub) Publish(ctx context.Context, channel string, msg *domain.Message) error {
