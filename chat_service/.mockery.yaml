@@ -38,3 +38,10 @@ packages:
         config:
           dir: internal/mocks
           pkgname: mocks
+
+  chat_service/internal/pubsub:
+    interfaces:
+      PubSub:
+        config:
+          dir: internal/mocks
+          pkgname: mocks

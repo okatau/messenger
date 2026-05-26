@@ -1,16 +1,16 @@
-COMPOSE_LOCAL = docker compose -f nginx_router/docker-compose.local.yml
-ENV_FILE_LOCAL = --env-file=nginx_router/.env.local
-COMPOSE_PROD = docker compose -f nginx_router/docker-compose.prod.yml
-ENV_FILE_PROD = --env-file=nginx_router/.env.prod
-COMPOSE_STAGING = docker compose -f nginx_router/docker-compose.prod.yml -f nginx_router/docker-compose.staging.yml
+COMPOSE_LOCAL = docker compose -f docker/docker-compose.local.yml
+ENV_FILE_LOCAL = --env-file=config/.env.local
+COMPOSE_PROD = docker compose -f docker/docker-compose.prod.yml
+ENV_FILE_PROD = --env-file=config/.env.prod
+COMPOSE_STAGING = docker compose -f docker/docker-compose.prod.yml -f docker/docker-compose.staging.yml
 
-COMPOSE_FLAGS = --project-directory nginx_router
+COMPOSE_FLAGS = --project-directory docker
 
-REGISTRY ?= $(shell grep '^REGISTRY=' nginx_router/.env.prod 2>/dev/null | cut -d= -f2)
+REGISTRY ?= $(shell grep '^REGISTRY=' config/.env.prod 2>/dev/null | cut -d= -f2)
 VERSION  ?= $(shell git rev-parse --short HEAD)
 
 local-up:
-	$(COMPOSE_LOCAL) $(ENV_FILE_LOCAL) $(COMPOSE_FLAGS) up --build
+	$(COMPOSE_LOCAL) $(ENV_FILE_LOCAL) $(COMPOSE_FLAGS) up -d --build
 
 prod-up:
 	$(COMPOSE_PROD) $(ENV_FILE_PROD) $(COMPOSE_FLAGS) up -d --build
@@ -43,21 +43,41 @@ staging-logs:
 	$(COMPOSE_STAGING) $(ENV_FILE_PROD) $(COMPOSE_FLAGS) logs -f
 
 build-prod:
-	docker buildx build --platform linux/amd64 --load \
+	docker buildx build --platform linux/amd64,linux/arm64 --load \
 		-t $(REGISTRY)/auth:$(VERSION)     -t $(REGISTRY)/auth:latest     ./auth_service
-	docker buildx build --platform linux/amd64 --load \
+	docker buildx build --platform linux/amd64,linux/arm64 --load \
 		-t $(REGISTRY)/chat:$(VERSION)     -t $(REGISTRY)/chat:latest     ./chat_service
-	docker buildx build --platform linux/amd64 --load \
+	docker buildx build --platform linux/amd64,linux/arm64 --load \
 		-t $(REGISTRY)/friends:$(VERSION)  -t $(REGISTRY)/friends:latest  ./friends_service
-	docker buildx build --platform linux/amd64 --load \
+	docker buildx build --platform linux/amd64,linux/arm64 --load \
 		-t $(REGISTRY)/frontend:$(VERSION) -t $(REGISTRY)/frontend:latest ./frontend
+	docker buildx build --platform linux/amd64,linux/arm64 --load \
+		-t $(REGISTRY)/api-gateway:$(VERSION) -t $(REGISTRY)/api-gateway:latest ./api_gateway
 
 push-prod:
 	docker push $(REGISTRY)/auth:$(VERSION)     && docker push $(REGISTRY)/auth:latest
 	docker push $(REGISTRY)/chat:$(VERSION)     && docker push $(REGISTRY)/chat:latest
 	docker push $(REGISTRY)/friends:$(VERSION)  && docker push $(REGISTRY)/friends:latest
 	docker push $(REGISTRY)/frontend:$(VERSION) && docker push $(REGISTRY)/frontend:latest
+	docker push $(REGISTRY)/api-gateway:$(VERSION) && docker push $(REGISTRY)/api-gateway:latest
 
 release-prod: build-prod push-prod
+
+SERVICES = auth_service chat_service friends_service api_gateway presence_service
+
+lint:
+	@for svc in $(SERVICES); do \
+		echo "==> $$svc"; \
+		cd $$svc && golangci-lint run --config ../.golangci.yml ./... && cd ..; \
+	done
+
+lint-%:
+	cd $* && golangci-lint run --config ../.golangci.yml ./...
+
+lint-fix:
+	@for svc in $(SERVICES); do \
+		echo "==> $$svc"; \
+		cd $$svc && golangci-lint run --config ../.golangci.yml --fix ./... && cd ..; \
+	done
 
 .DEFAULT_GOAL := help

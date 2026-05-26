@@ -3,18 +3,18 @@ package components
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"log"
 	"log/slog"
 
 	"chat_service/internal/clients"
+	"chat_service/internal/db"
+	"chat_service/internal/pubsub"
 	"chat_service/internal/repository"
 	"chat_service/internal/service"
 	"chat_service/pkg/config"
 	"chat_service/pkg/service_logger"
 	"chat_service/pkg/token_manager"
 
-	"github.com/go-redis/redis_rate/v10"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
@@ -26,16 +26,9 @@ type Config struct {
 	Postgres           config.PostgresConfig `env-prefix:"PG_"`
 	Redis              config.RedisConfig
 	Auth               config.AuthConfig
-	ServerConfig       config.HTTPConfig `yaml:"http"`
-	Limits             RateLimiter       `yaml:"limits"`
-	OriginWhitelist    []string          `yaml:"origin_whitelist"`
-	FriendsGRPCAddress string            `yaml:"friends_grpc_addr" env:"FRIENDS_GRPC_ADDR" env-required:"true"`
-}
-
-type RateLimiter struct {
-	CreateRoomLimit int `yaml:"create_room" env-default:"5"`
-	InviteLimit     int `yaml:"invite" env-default:"10"`
-	MessagesLimit   int `yaml:"messages" env-default:"30"`
+	ServerConfig       config.ServerConfig `yaml:"http"`
+	OriginWhitelist    []string            `yaml:"origin_whitelist"`
+	FriendsGRPCAddress string              `yaml:"friends_grpc_addr" env:"FRIENDS_GRPC_ADDR" env-required:"true"`
 }
 
 type Components struct {
@@ -44,30 +37,22 @@ type Components struct {
 	Hub          service.Hub
 	TokenManager *token_manager.TokenManager
 	Logger       *slog.Logger
-	Limiter      *redis_rate.Limiter
 	grpcConn     *grpc.ClientConn
 }
 
-func InitComponents(ctx context.Context, hubCtx context.Context, cfg *Config) *Components {
-	dsn := getPostgresDSN(cfg.Postgres)
-
-	pool, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err = pool.Ping(ctx); err != nil {
-		log.Fatal(err)
+func InitComponents(ctx, hubCtx context.Context, cfg *Config) *Components {
+	pool := db.Connect(ctx, cfg.Postgres)
+	if err := db.Run(cfg.Postgres); err != nil {
+		log.Fatal("migration failed:", err)
 	}
 
 	rdb := redis.NewUniversalClient(&redis.UniversalOptions{
 		Addrs:    cfg.Redis.Addrs,
 		Password: cfg.Redis.Password,
 	})
-	if err = rdb.Ping(ctx).Err(); err != nil {
+	if err := rdb.Ping(ctx).Err(); err != nil {
 		log.Fatalf("redis ping failed: %v", err)
 	}
-
-	limiter := redis_rate.NewLimiter(rdb)
 
 	logger := service_logger.InitLogger(cfg.Env)
 
@@ -84,6 +69,7 @@ func InitComponents(ctx context.Context, hubCtx context.Context, cfg *Config) *C
 	roomRepo := repository.NewRoomRepository(pool)
 	userRepo := repository.NewUserRepository(pool)
 	msgRepo := repository.NewMessageRepository(pool, rdb)
+	ps := pubsub.NewPubSub(rdb)
 
 	conn, err := grpc.NewClient(
 		cfg.FriendsGRPCAddress,
@@ -95,7 +81,7 @@ func InitComponents(ctx context.Context, hubCtx context.Context, cfg *Config) *C
 
 	friendsClient := clients.NewFriendshipClient(conn)
 
-	hub := service.NewHub(hubCtx, userRepo, roomRepo, msgRepo, logger, friendsClient)
+	hub := service.NewHub(hubCtx, userRepo, roomRepo, msgRepo, logger, friendsClient, ps)
 
 	return &Components{
 		Postgres:     pool,
@@ -103,18 +89,17 @@ func InitComponents(ctx context.Context, hubCtx context.Context, cfg *Config) *C
 		Hub:          hub,
 		TokenManager: manager,
 		Logger:       logger,
-		Limiter:      limiter,
 		grpcConn:     conn,
 	}
 }
 
-func (c *Components) Shutdown(ctx context.Context) {
+func (c *Components) Shutdown() {
 	c.Postgres.Close()
-	c.Redis.Close()
-	c.Hub.Shutdown(ctx)
-	c.grpcConn.Close()
-}
-
-func getPostgresDSN(cfg config.PostgresConfig) string {
-	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s", cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.DBName)
+	if err := c.Redis.Close(); err != nil {
+		c.Logger.Error("error closing redis conn", service_logger.Err(err))
+	}
+	c.Hub.Shutdown()
+	if err := c.grpcConn.Close(); err != nil {
+		c.Logger.Error("error closing grpc conn", service_logger.Err(err))
+	}
 }

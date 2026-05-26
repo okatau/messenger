@@ -3,8 +3,8 @@ module chat_service
 go 1.25.0
 
 require (
-	github.com/go-redis/redis_rate/v10 v10.0.1
 	github.com/golang-jwt/jwt/v5 v5.3.1
+	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/ilyakaznacheev/cleanenv v1.5.0
@@ -15,8 +15,8 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0
 	github.com/testcontainers/testcontainers-go/modules/redis v0.42.0
-	google.golang.org/grpc v1.67.0
-	google.golang.org/protobuf v1.34.2
+	google.golang.org/grpc v1.74.2
+	google.golang.org/protobuf v1.36.7
 )
 
 require (
@@ -31,7 +31,7 @@ require (
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/platforms v0.2.1 // indirect
 	github.com/cpuguy83/dockercfg v0.3.2 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/go-connections v0.6.0 // indirect
@@ -41,6 +41,7 @@ require (
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
+	github.com/jackc/pgerrcode v0.0.0-20220416144525-469b46aa5efa // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
@@ -59,7 +60,7 @@ require (
 	github.com/moby/term v0.5.2 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/shirou/gopsutil/v4 v4.26.3 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
@@ -69,7 +70,7 @@ require (
 	github.com/tklauser/numcpus v0.11.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.60.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.61.0 // indirect
 	go.opentelemetry.io/otel v1.41.0 // indirect
 	go.opentelemetry.io/otel/metric v1.41.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.39.0 // indirect
@@ -81,7 +82,7 @@ require (
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250818200422-3122310a409c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	olympos.io/encoding/edn v0.0.0-20201019073823-d3554ca0b0a3 // indirect
 )

@@ -67,7 +67,7 @@ const Index = () => {
                 headers: { Authorization: `Bearer ${user.access_token}` },
             });
             const data = await res.json();
-            setRooms(data ?? []);
+            setRooms(Array.isArray(data) ? data : []);
         } catch (e) {
             console.error(e);
         }
@@ -81,8 +81,8 @@ const Index = () => {
         setFriendsLoading(true);
         try {
             const [friendsRes, invitesRes] = await Promise.all([
-                fetch('/api/friends/list', { headers: { Authorization: `Bearer ${user.access_token}` } }),
-                fetch('/api/friends/invites', { headers: { Authorization: `Bearer ${user.access_token}` } }),
+                fetch('/api/v1/friends', { headers: { Authorization: `Bearer ${user.access_token}` } }),
+                fetch('/api/v1/friends/invites', { headers: { Authorization: `Bearer ${user.access_token}` } }),
             ]);
             if (friendsRes.ok) setFriendsList((await friendsRes.json()) ?? []);
             if (invitesRes.ok) setInvitesList((await invitesRes.json()) ?? []);
@@ -257,7 +257,7 @@ const Index = () => {
         const timer = setTimeout(async () => {
             setSearchLoading(true);
             try {
-                const res = await fetch(`/api/friends/search-friend?username=${encodeURIComponent(inviteUsername)}`, {
+                const res = await fetch(`/api/v1/friends/search-friend?username=${encodeURIComponent(inviteUsername)}`, {
                     headers: { Authorization: `Bearer ${user.access_token}` },
                 });
                 if (res.ok) setSearchResults((await res.json()) ?? []);
@@ -278,7 +278,7 @@ const Index = () => {
         const timer = setTimeout(async () => {
             setAddFriendLoading(true);
             try {
-                const res = await fetch(`/api/friends/search?username=${encodeURIComponent(addFriendUsername)}`, {
+                const res = await fetch(`/api/v1/friends/search?username=${encodeURIComponent(addFriendUsername)}`, {
                     headers: { Authorization: `Bearer ${user.access_token}` },
                 });
                 if (res.ok) setAddFriendResults((await res.json()) ?? []);
@@ -293,7 +293,7 @@ const Index = () => {
 
     const sendFriendRequest = async (userId: string) => {
         try {
-            const res = await fetch('/api/friends/add', {
+            const res = await fetch('/api/v1/friends/add', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -310,7 +310,7 @@ const Index = () => {
 
     const respondToInvite = async (inviterId: string, action: 'accept' | 'decline') => {
         try {
-            const res = await fetch(`/api/friends/${action}`, {
+            const res = await fetch(`/api/v1/friends/${action}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

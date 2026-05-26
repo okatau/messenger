@@ -1,6 +1,6 @@
 import React, { useState, createContext, useContext, useEffect, useRef } from 'react'
 import { AuthContext } from './auth_provider'
-import { WEBSOCKET_URL } from '../constants'
+import { WS_URL } from '../constants'
 
 type Conn = WebSocket | null
 
@@ -27,7 +27,7 @@ const WebSocketProvider = ({ children }: { children: React.ReactNode }) => {
 
     if (connRef.current) return
 
-    const ws = new WebSocket(`${WEBSOCKET_URL}/wss`)
+    const ws = new WebSocket(WS_URL)
 
     ws.onopen = () => {
       ws.send(JSON.stringify({ token: user.access_token }))

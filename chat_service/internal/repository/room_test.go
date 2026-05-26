@@ -77,7 +77,7 @@ func runMigrations(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
 	ctx := context.Background()
 
-	migrationsDir := "../../../migrations"
+	migrationsDir := "../db/migrations"
 
 	_, err := pool.Exec(ctx, `CREATE EXTENSION IF NOT EXISTS "pgcrypto"`)
 	require.NoError(t, err)
@@ -133,7 +133,6 @@ type Setup struct {
 	roomID string
 	repo   RoomRepository
 	pool   *pgxpool.Pool
-	redis  *redis.Client
 }
 
 func setup(t *testing.T) *Setup {

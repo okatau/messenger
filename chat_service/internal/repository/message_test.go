@@ -149,8 +149,6 @@ func Test_GetMessageBefore_PartialCache_NoDuplicates(t *testing.T) {
 
 	roomID, userID := createRoom(t, t.Context(), ss.pool, "room_overlap")
 
-	// 10 сообщений в Redis: base, base-1min, ..., base-9min
-	// 50 сообщений в PG: те же временные метки + 40 более старых (overlap на первых 10)
 	base := time.Now().Truncate(time.Minute)
 	addNMessagesRedis(t, roomID, 10, rdb, base)
 	addNMessagesPG(t, roomID, userID, 50, ss.pool, base)

@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+option go_package = "presence_service/pkg/pb";
+
+message HeartbeatReq {
+    string user_id = 1;
+}

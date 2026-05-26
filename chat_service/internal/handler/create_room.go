@@ -10,6 +10,7 @@ import (
 
 func CreateRoom(hub service.Hub) echo.HandlerFunc {
 	return func(c *echo.Context) error {
+		//nolint:errcheck // userID sets in chat_service/internal/middleware/extract_userid.go
 		userID := c.Get("userID").(string)
 
 		var req struct {

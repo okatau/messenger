@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"chat_service/internal/domain"
-	"chat_service/pkg/service_logger"
+	sl "chat_service/pkg/service_logger"
 
 	ws "github.com/gorilla/websocket"
 )
@@ -19,7 +19,7 @@ const (
 type User interface {
 	AddRoom(room Room) error
 	DeleteRoom(room Room) error
-	Write(ctx context.Context, msg *domain.Message) error
+	Write(msg *domain.Message) error
 	Listen(ctx context.Context, wg *sync.WaitGroup)
 	ID() string
 	Name() string
@@ -80,7 +80,7 @@ func (u *user) DeleteRoom(room Room) error {
 	return nil
 }
 
-func (u *user) Write(ctx context.Context, msg *domain.Message) error {
+func (u *user) Write(msg *domain.Message) error {
 	select {
 	case u.outgoingMsg <- msg:
 	default:
@@ -109,29 +109,31 @@ func (u *user) listenWrite() {
 		case msg := <-u.outgoingMsg:
 			if err := u.conn.WriteJSON(msg); err != nil {
 				u.closeOnce.Do(func() { close(u.doneCh) })
-				logger.Info("write error user", slog.String("userID", u.id), service_logger.Err(err))
+				logger.Info("write error user", slog.String("userID", u.id), sl.Err(err))
 			}
 		}
 	}
 }
 
 func (u *user) listenRead(ctx context.Context) {
-	defer func() {
-		u.conn.Close()
-		u.hub.Disconnect(ctx, u.id)
-	}()
-
 	const op = "chat.service.user.listenRead"
-	logger := u.logger.With("op", op)
+	l := u.logger.With("op", op)
+
+	defer func() {
+		if err := u.conn.Close(); err != nil {
+			l.Error("error closing ws connection", sl.Err(err))
+		}
+		u.hub.Disconnect(u.id) //nolint:errcheck // no need to check error
+	}()
 
 	for {
 		select {
 		case <-u.doneCh:
-			logger.Info("user done", slog.String("userID", u.id))
+			l.Info("user done", slog.String("userID", u.id))
 			return
 
 		case <-ctx.Done():
-			logger.Info("user ctx done", slog.String("userID", u.id))
+			l.Info("user ctx done", slog.String("userID", u.id))
 			return
 
 		default:
@@ -139,14 +141,14 @@ func (u *user) listenRead(ctx context.Context) {
 			err := u.conn.ReadJSON(&msg)
 			if err != nil {
 				u.closeOnce.Do(func() { close(u.doneCh) })
-				logger.Info("read error user", slog.String("userID", u.id), service_logger.Err(err))
+				l.Info("read error user", slog.String("userID", u.id), sl.Err(err))
 				return
 			} else {
 				u.mu.RLock()
 				room := u.rooms[msg.RoomID]
 				u.mu.RUnlock()
 				if room == nil {
-					logger.Info("room doesnt exist")
+					l.Info("room doesnt exist")
 					continue
 				}
 				msg.UserID = u.id
@@ -178,6 +180,9 @@ func (u *user) Rooms() map[string]Room {
 
 func (u *user) Stop() {
 	u.mu.Lock()
-	u.conn.Close()
+	err := u.conn.Close()
+	if err != nil {
+		u.logger.With("op", "chat.service.user.stop").Error("error", sl.Err(err))
+	}
 	u.mu.Unlock()
 }

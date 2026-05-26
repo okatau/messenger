@@ -2,9 +2,10 @@ package repository
 
 import (
 	"context"
-	"friends_service/internal/domain"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"friends_service/internal/domain"
 )
 
 const pageSize = 10

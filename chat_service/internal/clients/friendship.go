@@ -1,10 +1,11 @@
 package clients
 
 import (
-	pb "chat_service/pkg/friendspb"
 	"context"
 
 	"google.golang.org/grpc"
+
+	pb "chat_service/pkg/friends_pb"
 )
 
 type FriendshipClient interface {

@@ -140,7 +140,7 @@ func TestUser_Write(t *testing.T) {
 	t.Run("write message to outgoindMsg", func(t *testing.T) {
 		u := newTestUser("u1", "alice", nil, NewMockHub(t))
 
-		err := u.Write(context.Background(), &domain.Message{Message: "hello"})
+		err := u.Write(&domain.Message{Message: "hello"})
 
 		assert.NoError(t, err)
 	})
@@ -150,10 +150,10 @@ func TestUser_Write(t *testing.T) {
 		msg := &domain.Message{Message: "x"}
 
 		for i := 0; i < MaxBufSize; i++ {
-			require.NoError(t, u.Write(context.Background(), msg))
+			require.NoError(t, u.Write(msg))
 		}
 
-		err := u.Write(context.Background(), msg)
+		err := u.Write(msg)
 
 		assert.ErrorIs(t, err, domain.ErrUserDisconnected)
 	})
@@ -164,14 +164,14 @@ func TestUser_ListenWrite_DeliversMsgToClient(t *testing.T) {
 	serverConn, clientConn := newWSPair(t)
 
 	hub := NewMockHub(t)
-	hub.EXPECT().Disconnect(mock.Anything, "u1").Return(nil, nil)
+	hub.EXPECT().Disconnect("u1").Return(nil, nil)
 
 	u := newTestUser("u1", "alice", serverConn, hub)
 
 	roomID := "room-id"
 
 	msg := &domain.Message{Message: "ping", RoomID: roomID}
-	require.NoError(t, u.Write(context.Background(), msg))
+	require.NoError(t, u.Write(msg))
 
 	var wg sync.WaitGroup
 	u.Listen(context.Background(), &wg)
@@ -191,7 +191,7 @@ func TestUser_ListenRead_BroadcastsToRoom(t *testing.T) {
 	serverConn, clientConn := newWSPair(t)
 
 	hub := NewMockHub(t)
-	hub.EXPECT().Disconnect(mock.Anything, "u1").Return(nil, nil)
+	hub.EXPECT().Disconnect("u1").Return(nil, nil)
 
 	u := newTestUser("u1", "alice", serverConn, hub)
 
@@ -235,7 +235,7 @@ func TestUser_ListenRead_ClosedConnCallsDisconnect(t *testing.T) {
 	serverConn, clientConn := newWSPair(t)
 
 	hub := NewMockHub(t)
-	hub.EXPECT().Disconnect(mock.Anything, "u1").Return(nil, nil)
+	hub.EXPECT().Disconnect("u1").Return(nil, nil)
 
 	u := newTestUser("u1", "alice", serverConn, hub)
 

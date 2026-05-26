@@ -31,7 +31,7 @@ func Test_GetRoom(t *testing.T) {
 		c.Set("userID", aliceID)
 
 		svc := service.NewMockHub(t)
-		svc.EXPECT().GetRoomsByUser(mock.Anything, aliceID).Return(([]*domain.Room)(nil), dbError)
+		svc.EXPECT().GetRoomsByUser(mock.Anything, aliceID).Return(([]*domain.Room)(nil), errDB)
 
 		err := GetRoom(svc)(c)
 		var echoError *echo.HTTPError

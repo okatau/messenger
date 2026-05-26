@@ -121,7 +121,7 @@ func (r *roomRepo) CreateRoom(ctx context.Context, name, userID string) (*domain
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer tx.Rollback(ctx) //nolint:errcheck // rollback is called as cleanup; if tx was committed, rollback returns harmless ErrTxClosed
 
 	var room domain.Room
 	err = tx.QueryRow(ctx, `

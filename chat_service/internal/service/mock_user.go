@@ -355,16 +355,16 @@ func (_c *MockUser_Stop_Call) RunAndReturn(run func()) *MockUser_Stop_Call {
 }
 
 // Write provides a mock function for the type MockUser
-func (_mock *MockUser) Write(ctx context.Context, msg *domain.Message) error {
-	ret := _mock.Called(ctx, msg)
+func (_mock *MockUser) Write(msg *domain.Message) error {
+	ret := _mock.Called(msg)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Write")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *domain.Message) error); ok {
-		r0 = returnFunc(ctx, msg)
+	if returnFunc, ok := ret.Get(0).(func(*domain.Message) error); ok {
+		r0 = returnFunc(msg)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -377,25 +377,19 @@ type MockUser_Write_Call struct {
 }
 
 // Write is a helper method to define mock.On call
-//   - ctx context.Context
 //   - msg *domain.Message
-func (_e *MockUser_Expecter) Write(ctx interface{}, msg interface{}) *MockUser_Write_Call {
-	return &MockUser_Write_Call{Call: _e.mock.On("Write", ctx, msg)}
+func (_e *MockUser_Expecter) Write(msg interface{}) *MockUser_Write_Call {
+	return &MockUser_Write_Call{Call: _e.mock.On("Write", msg)}
 }
 
-func (_c *MockUser_Write_Call) Run(run func(ctx context.Context, msg *domain.Message)) *MockUser_Write_Call {
+func (_c *MockUser_Write_Call) Run(run func(msg *domain.Message)) *MockUser_Write_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
+		var arg0 *domain.Message
 		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 *domain.Message
-		if args[1] != nil {
-			arg1 = args[1].(*domain.Message)
+			arg0 = args[0].(*domain.Message)
 		}
 		run(
 			arg0,
-			arg1,
 		)
 	})
 	return _c
@@ -406,7 +400,7 @@ func (_c *MockUser_Write_Call) Return(err error) *MockUser_Write_Call {
 	return _c
 }
 
-func (_c *MockUser_Write_Call) RunAndReturn(run func(ctx context.Context, msg *domain.Message) error) *MockUser_Write_Call {
+func (_c *MockUser_Write_Call) RunAndReturn(run func(msg *domain.Message) error) *MockUser_Write_Call {
 	_c.Call.Return(run)
 	return _c
 }

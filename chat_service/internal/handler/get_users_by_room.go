@@ -20,15 +20,6 @@ func GetUsersByRoom(hub service.Hub) echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusInternalServerError, "internal server error")
 		}
 
-		// type resType struct {
-		// 	Username string `json:"username"`
-		// }
-		// res := make([]resType, len(users))
-
-		// for i, u := range users {
-		// 	res[i] = resType{Username: u}
-		// }
-
 		return c.JSON(http.StatusOK, users)
 	}
 }

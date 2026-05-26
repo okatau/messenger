@@ -68,8 +68,8 @@ func (r *messageRepo) GetMessagesBefore(ctx context.Context, roomID string, befo
 	key := cacheKey(roomID)
 	cached, err := r.rdb.ZRangeArgs(ctx, redis.ZRangeArgs{
 		Key:     key,
-		Start:   fmt.Sprintf("(%d", before.Unix()),
-		Stop:    "-inf",
+		Start:   "-inf",
+		Stop:    fmt.Sprintf("(%d", before.Unix()),
 		ByScore: true,
 		Rev:     true,
 		Count:   cacheSize,
@@ -131,7 +131,7 @@ func (r *messageRepo) warmCache(ctx context.Context, key string, messages []*dom
 		pipe.ZAdd(ctx, key, redis.Z{Score: float64(messages[i].Timestamp.Unix()), Member: string(data)})
 	}
 	pipe.Expire(ctx, key, cacheTTL)
-	pipe.Exec(ctx)
+	pipe.Exec(ctx) //nolint:errcheck // pipeline errors are handled per-command, exec error is not action
 }
 
 func deserializeMessage(raw []string) ([]*domain.Message, error) {

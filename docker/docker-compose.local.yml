@@ -1,0 +1,184 @@
+services:
+
+  api-gateway-local:
+    container_name: api-gateway-local
+    restart: always
+    build:
+      context: ../api_gateway
+      dockerfile: Dockerfile
+    environment:
+      APP_ENV_FILE: /etc/api_gateway/.env.local
+      APP_CONFIG_FILE: /etc/api_gateway/local.yaml
+    expose:
+      - "7777"
+    volumes:
+      - ../config/api_gateway/local.yaml:/etc/api_gateway/local.yaml
+      - ../config/.env.local:/etc/api_gateway/.env.local
+    depends_on:
+      redis-local:
+        condition: service_healthy
+      auth-local:
+        condition: service_started
+      chat-lb-local:
+        condition: service_started
+      friends-local:
+        condition: service_started
+
+  chat-lb-local:
+    container_name: chat-lb-local
+    restart: always
+    image: nginx:alpine
+    expose:
+      - "8082"
+    volumes:
+      - ../config/nginx/nginx.chat-lb.local.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - chat-local-1
+      - chat-local-2
+
+  nginx-local:
+    container_name: nginx-local
+    restart: always
+    image: nginx:alpine
+    user: "root"
+    ports:
+      - "8080:80"
+    volumes:
+      - ../config/nginx/nginx.local.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - frontend-local
+      - api-gateway-local
+      - chat-local-1
+      - chat-local-2
+
+  frontend-local:
+    container_name: frontend-local
+    restart: always
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: "http://localhost:8080"
+      NEXT_PUBLIC_WEBSOCKET_URL: "ws://localhost:8080/api/v1/rooms"
+      API_INTERNAL_URL: "http://nginx-local"
+      NODE_ENV: production
+
+  pg-local:
+    container_name: pg-local
+    user: "root"
+    image: postgres:16-alpine
+    restart: always
+    environment: 
+      POSTGRES_DB: "messenger"
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - ".data/pg-local:/var/lib/postgresql/data"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d messenger"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  
+  redis-local:
+    container_name: redis-local
+    user: "root"
+    image: redis:8.6-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - ".data/redis-local:/var/lib/redis/data"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  
+  auth-local:
+    container_name: auth-local
+    restart: always
+    build:
+      context: ../auth_service
+      dockerfile: Dockerfile
+    environment:            
+      APP_ENV_FILE: /etc/auth_service/.env.local
+      APP_CONFIG_FILE: /etc/auth_service/local.yaml
+    expose:
+      - "8081"
+    volumes:
+      - ../config/auth_service/local.yaml:/etc/auth_service/local.yaml
+      - ../config/.env.local:/etc/auth_service/.env.local
+    depends_on:
+      pg-local:
+        condition: service_healthy
+      
+  chat-local-1:
+    container_name: chat-local-1
+    restart: always
+    build:
+      context: ../chat_service
+      dockerfile: Dockerfile
+    environment:
+      APP_ENV_FILE: /etc/chat_service/.env.local
+      APP_CONFIG_FILE: /etc/chat_service/local.yaml
+    expose:
+      - "8082"
+    volumes:
+      - ../config/chat_service/local.yaml:/etc/chat_service/local.yaml
+      - ../config/.env.local:/etc/chat_service/.env.local
+    depends_on:
+      pg-local:
+        condition: service_healthy
+      redis-local:
+        condition: service_healthy
+      friends-local:
+        condition: service_started
+
+  chat-local-2:
+    container_name: chat-local-2
+    restart: always
+    build:
+      context: ../chat_service
+      dockerfile: Dockerfile
+    environment:
+      APP_ENV_FILE: /etc/chat_service/.env.local
+      APP_CONFIG_FILE: /etc/chat_service/local.yaml
+    expose:
+      - "8082"
+    volumes:
+      - ../config/chat_service/local.yaml:/etc/chat_service/local.yaml
+      - ../config/.env.local:/etc/chat_service/.env.local
+    depends_on:
+      pg-local:
+        condition: service_healthy
+      redis-local:
+        condition: service_healthy
+      friends-local:
+        condition: service_started
+
+  friends-local:
+    container_name: friends-local
+    restart: always
+    build:
+      context: ../friends_service
+      dockerfile: Dockerfile
+    environment:            
+      APP_ENV_FILE: /etc/friends_service/.env.local
+      APP_CONFIG_FILE: /etc/friends_service/local.yaml
+    expose:
+      - "8083"
+      - "50051"
+    volumes:
+      - ../config/friends_service/local.yaml:/etc/friends_service/local.yaml
+      - ../config/.env.local:/etc/friends_service/.env.local
+    depends_on:
+      pg-local:
+        condition: service_healthy
+
+
+

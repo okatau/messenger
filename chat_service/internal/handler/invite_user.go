@@ -14,10 +14,11 @@ import (
 // Now always force intvite even if user dont want join room
 // Update logic to:
 // 1. User sets availability of invites (alter table invite_available)
-// 2. make accept / decline logic. create table invites (inviter, invitee, room, created at) and show to user when he is online
+// 2. make accept / decline logic. create table invites (inviter, invitee, room, created at) and show to user when he is online.
 func InviteUser(hub service.Hub) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		roomID := c.Param("roomId")
+		//nolint:errcheck // userID sets in chat_service/internal/middleware/extract_userid.go
 		inviterID := c.Get("userID").(string)
 		var req struct {
 			UserID string `json:"userId"`

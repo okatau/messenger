@@ -32,7 +32,9 @@ func newContext(method, target, body string) (*echo.Echo, *echo.Context, *httpte
 	req := httptest.NewRequest(method, target, reqBody)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
-	return e, e.NewContext(req, rec), rec
+	c := e.NewContext(req, rec)
+
+	return e, c, rec
 }
 
 func Test_Register(t *testing.T) {
