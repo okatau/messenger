@@ -3,6 +3,7 @@ package service
 import (
 	"chat_service/internal/domain"
 	"chat_service/internal/pubsub"
+	"chat_service/internal/repository"
 	"context"
 	"log/slog"
 	"sync"
@@ -38,55 +39,45 @@ func (n *nopMsgRepo) GetMessagesBefore(_ context.Context, _ string, _ time.Time)
 	return nil, nil
 }
 
-type captureUser struct {
-	id       string
-	received chan *domain.Message
-}
-
-func (u *captureUser) ID() string                                  { return u.id }
-func (u *captureUser) Name() string                                { return u.id }
-func (u *captureUser) AddRoom(Room) error                          { return nil }
-func (u *captureUser) DeleteRoom(Room) error                       { return nil }
-func (u *captureUser) Rooms() map[string]Room                      { return nil }
-func (u *captureUser) Listen(_ context.Context, _ *sync.WaitGroup) {}
-func (u *captureUser) Stop()                                       {}
-func (u *captureUser) Write(msg *domain.Message) error {
-	u.received <- msg
-	return nil
-}
-
-var _ User = (*captureUser)(nil)
+var _ repository.MessageRepository = (*nopMsgRepo)(nil)
 
 func Test_CrossInstance_MessageDelivery(t *testing.T) {
 	rdb := startRedis(t)
 	ps := pubsub.NewPubSub(rdb)
 
-	alice := &captureUser{id: "alice-id", received: make(chan *domain.Message, 1)}
-	roomA := NewRoom("room-1", &nopMsgRepo{}, ps, slog.Default())
-	require.NoError(t, roomA.AddUser(alice))
+	srvConn1, clientConn1 := newWSPair(t)
+	srvConn2, clientConn2 := newWSPair(t)
 
-	bob := &captureUser{id: "bob-id", received: make(chan *domain.Message, 1)}
-	roomB := NewRoom("room-1", &nopMsgRepo{}, ps, slog.Default())
-	require.NoError(t, roomB.AddUser(bob))
+	hub := NewMockHub(t)
+	hub.EXPECT().Disconnect(aliceID).Return((User)(nil), nil)
+	hub.EXPECT().Disconnect(bobID).Return((User)(nil), nil)
+	mRepo := &nopMsgRepo{}
 
-	go roomA.Run(t.Context())
-	go roomB.Run(t.Context())
+	alice := NewUser(aliceID, alice, srvConn1, ps, hub, slog.Default(), mRepo)
+	bob := NewUser(bobID, bob, srvConn2, ps, hub, slog.Default(), mRepo)
+
+	alice.AddRoomSub(t.Context(), room1_ID)
+	bob.AddRoomSub(t.Context(), room1_ID)
+
+	var awg sync.WaitGroup
+	alice.Listen(t.Context(), &awg)
+
+	var bwg sync.WaitGroup
+	bob.Listen(t.Context(), &bwg)
+
 	time.Sleep(100 * time.Millisecond)
 
-	msg := &domain.Message{Message: "sup bob", UserID: bob.id, RoomID: roomA.ID()}
-	roomA.Broadcast(t.Context(), msg)
+	msg := &domain.Message{Username: bob.Name(), Message: "Hello, Alice!", RoomID: room1_ID}
+	require.NoError(t, clientConn1.WriteJSON(msg))
 
-	select {
-	case got := <-alice.received:
-		assert.Equal(t, msg.Message, got.Message)
-	case <-time.After(2 * time.Second):
-		t.Fatal("alice did not receive msg")
-	}
+	var got domain.Message
+	require.NoError(t, clientConn2.SetReadDeadline(time.Now().Add(3*time.Second)))
+	require.NoError(t, clientConn2.ReadJSON(&got))
 
-	select {
-	case got := <-bob.received:
-		assert.Equal(t, msg.Message, got.Message)
-	case <-time.After(2 * time.Millisecond):
-		t.Fatal("bob did not receive msg")
-	}
+	assert.Equal(t, "Hello, Alice!", got.Message)
+
+	clientConn1.Close()
+	clientConn2.Close()
+	waitDone(t, &awg)
+	waitDone(t, &bwg)
 }
