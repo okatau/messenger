@@ -98,7 +98,7 @@ func runMigrations(t *testing.T, pool *pgxpool.Pool) {
 	}
 }
 
-func createUser(t *testing.T, ctx context.Context, pool *pgxpool.Pool, name string) string {
+func createUser(t *testing.T, pool *pgxpool.Pool, name string) string {
 	t.Helper()
 	query := `
 		INSERT INTO users (name, email, password_hash)
@@ -107,17 +107,16 @@ func createUser(t *testing.T, ctx context.Context, pool *pgxpool.Pool, name stri
 	`
 
 	var id string
-	err := pool.QueryRow(ctx, query, name).Scan(&id)
+	err := pool.QueryRow(t.Context(), query, name).Scan(&id)
 	require.NoError(t, err, "error adding user")
 	return id
 }
 
-func createRoom(t *testing.T, ctx context.Context, pool *pgxpool.Pool, name string) (roomID, userID string) {
+func createRoom(t *testing.T, pool *pgxpool.Pool, name, userID string) (roomID string) {
 	t.Helper()
-	userID = createUser(t, ctx, pool, "user_"+name)
 
 	var room domain.Room
-	err := pool.QueryRow(ctx, `
+	err := pool.QueryRow(t.Context(), `
 		INSERT INTO rooms(name, created_by)
 		VALUES ($1, $2)
 		RETURNING id, name, created_by, created_at
@@ -129,85 +128,114 @@ func createRoom(t *testing.T, ctx context.Context, pool *pgxpool.Pool, name stri
 }
 
 type Setup struct {
-	userID string
-	roomID string
-	repo   RoomRepository
-	pool   *pgxpool.Pool
+	repo RoomRepository
+	pool *pgxpool.Pool
 }
 
 func setup(t *testing.T) *Setup {
 	pool, cleanupPg := startPostgres(t)
 
 	repo := NewRoomRepository(pool)
-	name := "initial"
-	roomID, userID := createRoom(t, t.Context(), pool, name)
 
 	t.Cleanup(func() {
 		cleanupPg()
 	})
 
 	return &Setup{
-		userID: userID,
-		roomID: roomID,
-		repo:   repo,
-		pool:   pool,
+		repo: repo,
+		pool: pool,
 	}
 }
 
 func Test_Room_CreateRoom(t *testing.T) {
 	ss := setup(t)
-	ctx := context.Background()
+	userID := createUser(t, ss.pool, "user")
 	name := "room1"
 
-	room, err := ss.repo.CreateRoom(ctx, name, ss.userID)
+	room, err := ss.repo.CreateRoom(t.Context(), name, userID)
 	require.NoError(t, err)
-	assert.Equal(t, room.Name, name)
+	assert.Equal(t, *room.Name, name)
 
-	rooms, err := ss.repo.GetRoomsByUserID(ctx, ss.userID)
+	rooms, err := ss.repo.GetRoomsByUserID(t.Context(), userID)
 	require.NoError(t, err)
 	assert.Equal(t, rooms[0].ID, room.ID)
 }
 
 func Test_Room_DeleteRoom(t *testing.T) {
 	ss := setup(t)
-	ctx := context.Background()
 
-	room, err := ss.repo.DeleteRoom(ctx, ss.roomID)
-	require.NoError(t, err)
-	assert.Equal(t, room.ID, ss.roomID)
+	t.Run("Deleting group room", func(t *testing.T) {
+		userID := createUser(t, ss.pool, "user_1")
+		roomID := createRoom(t, ss.pool, "delete_room_1", userID)
+		room, err := ss.repo.DeleteRoom(t.Context(), roomID)
+
+		require.NoError(t, err)
+		assert.Equal(t, room.ID, roomID)
+	})
+
+	t.Run("Deleting direct room", func(t *testing.T) {
+		alice := createUser(t, ss.pool, "alice")
+		bob := createUser(t, ss.pool, "bob")
+		room, err := ss.repo.CreateDM(t.Context(), alice, bob)
+		require.NoError(t, err)
+
+		room, err = ss.repo.DeleteRoom(t.Context(), room.ID)
+		require.NoError(t, err)
+
+		rooms, err := ss.repo.GetDMsByUserID(t.Context(), alice)
+		require.NoError(t, err)
+		assert.Len(t, rooms, 0)
+	})
 }
 
 func Test_Room_AddUser(t *testing.T) {
 	ss := setup(t)
-	ctx := context.Background()
 
-	bobID := createUser(t, ctx, ss.pool, "bob")
-	err := ss.repo.AddUser(ctx, bobID, ss.roomID)
+	alice := createUser(t, ss.pool, "alice")
+	bob := createUser(t, ss.pool, "bob")
+	room := createRoom(t, ss.pool, "add_user", alice)
+
+	err := ss.repo.AddUser(t.Context(), bob, room)
 	require.NoError(t, err)
 
-	exists, err := ss.repo.IsMember(ctx, bobID, ss.roomID)
+	exists, err := ss.repo.IsMember(t.Context(), bob, room)
 	require.NoError(t, err)
 	assert.Equal(t, exists, true)
 }
 
-func RemoveUser(t *testing.T) {
+func Test_Room_RemoveUser(t *testing.T) {
 	ss := setup(t)
-	ctx := context.Background()
 
-	bobID := createUser(t, ctx, ss.pool, "bob")
-	err := ss.repo.AddUser(ctx, bobID, ss.roomID)
+	alice := createUser(t, ss.pool, "alice")
+	bob := createUser(t, ss.pool, "bob")
+	room := createRoom(t, ss.pool, "add_user", alice)
+	err := ss.repo.AddUser(t.Context(), bob, room)
 	require.NoError(t, err)
 
-	exists, err := ss.repo.IsMember(ctx, bobID, ss.roomID)
+	exists, err := ss.repo.IsMember(t.Context(), bob, room)
 	require.NoError(t, err)
 	assert.Equal(t, exists, true)
 
-	err = ss.repo.RemoveUser(ctx, bobID, ss.roomID)
+	err = ss.repo.RemoveUser(t.Context(), bob, room)
 	require.NoError(t, err)
 
-	member, err := ss.repo.IsMember(ctx, bobID, ss.roomID)
+	member, err := ss.repo.IsMember(t.Context(), bob, room)
 	require.NoError(t, err)
 	if member {
 		t.Error("user had not been deleted")
 	}
+}
+
+func Test_Room_CreateDM(t *testing.T) {
+	ss := setup(t)
+
+	aliceID := createUser(t, ss.pool, "alice")
+	bobID := createUser(t, ss.pool, "bob")
+	_, err := ss.repo.CreateDM(t.Context(), aliceID, bobID)
+	require.NoError(t, err)
+
+	rooms, err := ss.repo.GetDMsByUserID(t.Context(), aliceID)
+	require.NoError(t, err)
+	assert.Len(t, rooms, 1)
+	assert.Equal(t, rooms[0].CreatedBy, aliceID)
 }

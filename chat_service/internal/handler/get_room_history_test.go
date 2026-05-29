@@ -28,7 +28,7 @@ func Test_GetRoomHistory(t *testing.T) {
 		{
 			name: "success last messages",
 			setup: func(h *service.MockHub, c *echo.Context) {
-				h.EXPECT().GetRoomHistory(mock.Anything, aliceID, roomID, time.Time{}).Return(([]*domain.Message)(nil), nil)
+				h.EXPECT().GetRoomHistory(mock.Anything, roomID, aliceID, time.Time{}).Return(([]*domain.Message)(nil), nil)
 				c.SetPathValues(echo.PathValues{{Name: "roomId", Value: roomID}})
 			},
 			wantStatus: http.StatusOK,
@@ -36,7 +36,7 @@ func Test_GetRoomHistory(t *testing.T) {
 		{
 			name: "success last messages before",
 			setup: func(h *service.MockHub, c *echo.Context) {
-				h.EXPECT().GetRoomHistory(mock.Anything, aliceID, roomID, timeNow).Return(([]*domain.Message)(nil), nil)
+				h.EXPECT().GetRoomHistory(mock.Anything, roomID, aliceID, timeNow).Return(([]*domain.Message)(nil), nil)
 				c.SetPathValues(echo.PathValues{{Name: "roomId", Value: roomID}})
 				c.Request().URL.RawQuery = "before=" + url.QueryEscape(timeNow.Format(time.RFC3339))
 			},
@@ -61,7 +61,7 @@ func Test_GetRoomHistory(t *testing.T) {
 		{
 			name: "room not found",
 			setup: func(h *service.MockHub, c *echo.Context) {
-				h.EXPECT().GetRoomHistory(mock.Anything, aliceID, roomID, timeNow).Return(([]*domain.Message)(nil), domain.ErrRoomNotFound)
+				h.EXPECT().GetRoomHistory(mock.Anything, roomID, aliceID, timeNow).Return(([]*domain.Message)(nil), domain.ErrRoomNotFound)
 				c.SetPathValues(echo.PathValues{{Name: "roomId", Value: roomID}})
 				c.Request().URL.RawQuery = "before=" + url.QueryEscape(timeNow.Format(time.RFC3339))
 			},
@@ -71,7 +71,7 @@ func Test_GetRoomHistory(t *testing.T) {
 		{
 			name: "internal server error",
 			setup: func(h *service.MockHub, c *echo.Context) {
-				h.EXPECT().GetRoomHistory(mock.Anything, aliceID, roomID, time.Time{}).Return(([]*domain.Message)(nil), errDB)
+				h.EXPECT().GetRoomHistory(mock.Anything, roomID, aliceID, time.Time{}).Return(([]*domain.Message)(nil), errDB)
 				c.SetPathValues(echo.PathValues{{Name: "roomId", Value: roomID}})
 			},
 			wantStatus: http.StatusInternalServerError,

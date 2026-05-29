@@ -48,7 +48,9 @@ func InitChatEndpoints(
 	chat.GET("", redirectTo(proxy), auth)
 	chat.GET("/:roomId/users", redirectTo(proxy), auth)
 	chat.GET("/:roomId/messages", redirectTo(proxy), auth, rl(cl.MessagesLimit))
+
 	chat.POST("", redirectTo(proxy), auth, rl(cl.CreateRoomLimit))
+	chat.POST("/dm", redirectTo(proxy), rl(cl.CreateRoomLimit))
 	chat.POST("/:roomId/invite", redirectTo(proxy), auth, rl(cl.InviteLimit))
 	chat.POST("/:roomId/leave", redirectTo(proxy), auth)
 }

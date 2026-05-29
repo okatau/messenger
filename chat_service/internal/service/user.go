@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	MaxBufSize = 100
+	MaxBufSize  = 100
+	userSvcName = "chat.service.user"
 )
 
 type User interface {
@@ -97,31 +98,29 @@ func (u *user) Listen(ctx context.Context, wg *sync.WaitGroup) {
 }
 
 func (u *user) listenWrite() {
-	const op = "chat.service.user.listenWrite"
-	logger := u.logger.With("op", op)
+	l := u.loggerWith(".listenwritre")
 
 	for {
 		select {
 		case <-u.doneCh:
-			logger.Info("user done", slog.String("userID", u.id))
+			l.Info("user done", slog.String("userID", u.id))
 			return
 
 		case msg := <-u.outgoingMsg:
 			if err := u.conn.WriteJSON(msg); err != nil {
 				u.closeOnce.Do(func() { close(u.doneCh) })
-				logger.Info("write error user", slog.String("userID", u.id), sl.Err(err))
+				l.Info("failed to write message to user conn", slog.String("userID", u.id), sl.Err(err))
 			}
 		}
 	}
 }
 
 func (u *user) listenRead(ctx context.Context) {
-	const op = "chat.service.user.listenRead"
-	l := u.logger.With("op", op)
+	l := u.loggerWith(".listenread")
 
 	defer func() {
 		if err := u.conn.Close(); err != nil {
-			l.Error("error closing ws connection", sl.Err(err))
+			l.Error("error during closing ws connection", sl.Err(err))
 		}
 		u.hub.Disconnect(u.id) //nolint:errcheck // no need to check error
 	}()
@@ -141,15 +140,19 @@ func (u *user) listenRead(ctx context.Context) {
 			err := u.conn.ReadJSON(&msg)
 			if err != nil {
 				u.closeOnce.Do(func() { close(u.doneCh) })
-				l.Info("read error user", slog.String("userID", u.id), sl.Err(err))
+				l.Info("failed to read message from conn", slog.String("userID", u.id), sl.Err(err))
 				return
 			} else {
 				u.mu.RLock()
 				room := u.rooms[msg.RoomID]
 				u.mu.RUnlock()
 				if room == nil {
-					l.Info("room doesnt exist")
-					continue
+					joined, err := u.hub.JoinRoom(ctx, u.id, msg.RoomID)
+					if err != nil || joined == nil {
+						l.Info("room does not exist", slog.String("roomID", msg.RoomID))
+						continue
+					}
+					room = joined
 				}
 				msg.UserID = u.id
 				msg.Username = u.name
@@ -182,7 +185,11 @@ func (u *user) Stop() {
 	u.mu.Lock()
 	err := u.conn.Close()
 	if err != nil {
-		u.logger.With("op", "chat.service.user.stop").Error("error", sl.Err(err))
+		u.loggerWith(".stop").Error("error during connection closing", sl.Err(err))
 	}
 	u.mu.Unlock()
+}
+
+func (u *user) loggerWith(fnName string) *slog.Logger {
+	return u.logger.With("op", userSvcName+fnName)
 }

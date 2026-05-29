@@ -39,7 +39,6 @@ func main() {
 	g, gCtx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
-		comps.Logger.Info(fmt.Sprintf("listening friends service on %d", cfg.ServerConfig.Port))
 		if err := srvHTTP.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return fmt.Errorf("http server: %w", err)
 		}

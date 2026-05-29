@@ -2,7 +2,6 @@ package handler
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"testing"
 
@@ -107,7 +106,6 @@ func Test_InviteUser(t *testing.T) {
 				require.ErrorAs(t, err, &echoError)
 				assert.Equal(t, tt.wantStatus, echoError.Code)
 			} else {
-				fmt.Println("aaaaaaaaaaaaaaa", err, rec.Code)
 				require.NoError(t, err)
 				assert.Equal(t, tt.wantStatus, rec.Code)
 			}
