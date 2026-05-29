@@ -44,6 +44,8 @@ func connectUser(t *testing.T, h Hub, uRepo *mocks.MockUserRepository, rRepo *mo
 	t.Helper()
 	uRepo.EXPECT().GetUserByID(mock.Anything, userID).Return(&domain.User{ID: userID, Username: userName}, nil)
 	rRepo.EXPECT().GetRoomsByUserID(mock.Anything, userID).Return(rooms, nil)
+	rRepo.EXPECT().GetDMsByUserID(mock.Anything, userID).Return([]*domain.Room{}, nil)
+
 	_, conn := newWSPair(t)
 	require.NoError(t, h.Connect(t.Context(), userID, conn))
 }
@@ -65,6 +67,7 @@ func Test_Hub_Connect(t *testing.T) {
 			) {
 				userRepo.EXPECT().GetUserByID(mock.Anything, userID_1).Return(&domain.User{ID: userID_1, Username: username_1}, nil)
 				roomRepo.EXPECT().GetRoomsByUserID(mock.Anything, userID_1).Return([]*domain.Room{{ID: roomID_1}}, nil)
+				roomRepo.EXPECT().GetDMsByUserID(mock.Anything, userID_1).Return([]*domain.Room{}, nil)
 			},
 		},
 		{
@@ -88,13 +91,25 @@ func Test_Hub_Connect(t *testing.T) {
 			wantError: errDB,
 		},
 		{
-			name: "roomRepo error",
+			name: "GetRoomsByUserID error",
 			setup: func(
 				userRepo *mocks.MockUserRepository,
 				roomRepo *mocks.MockRoomRepository,
 			) {
 				userRepo.EXPECT().GetUserByID(mock.Anything, userID_1).Return(&domain.User{ID: userID_1, Username: username_1}, nil)
 				roomRepo.EXPECT().GetRoomsByUserID(mock.Anything, userID_1).Return(([]*domain.Room)(nil), errDB)
+			},
+			wantError: errDB,
+		},
+		{
+			name: "GetDMsByUserID error",
+			setup: func(
+				userRepo *mocks.MockUserRepository,
+				roomRepo *mocks.MockRoomRepository,
+			) {
+				userRepo.EXPECT().GetUserByID(mock.Anything, userID_1).Return(&domain.User{ID: userID_1, Username: username_1}, nil)
+				roomRepo.EXPECT().GetRoomsByUserID(mock.Anything, userID_1).Return([]*domain.Room{{ID: roomID_1}}, nil)
+				roomRepo.EXPECT().GetDMsByUserID(mock.Anything, userID_1).Return(([]*domain.Room)(nil), errDB)
 			},
 			wantError: errDB,
 		},
@@ -179,8 +194,8 @@ func Test_Hub_InviteUser(t *testing.T) {
 				r.EXPECT().CreateRoom(mock.Anything, mock.Anything, aliceID).Return(&domain.Room{ID: roomID_1}, nil)
 				r.EXPECT().IsMember(mock.Anything, aliceID, roomID_1).Return(true, nil)
 				r.EXPECT().AddUser(mock.Anything, bobID, roomID_1).Return(nil)
-
 				fc.EXPECT().IsFriend(mock.Anything, aliceID, bobID).Return(true, nil)
+				r.EXPECT().GetRoomType(mock.Anything, roomID_1).Return("group", nil)
 			},
 		},
 		{
@@ -200,6 +215,16 @@ func Test_Hub_InviteUser(t *testing.T) {
 				fc.EXPECT().IsFriend(mock.Anything, aliceID, bobID).Return(false, nil)
 			},
 			wantError: domain.ErrUserForbidden,
+		},
+		{
+			name: "invalid room type",
+			setup: func(r *mocks.MockRoomRepository, fc *mocks.MockFriendshipClient) {
+				r.EXPECT().CreateRoom(mock.Anything, mock.Anything, aliceID).Return(&domain.Room{ID: roomID_1}, nil)
+				r.EXPECT().IsMember(mock.Anything, aliceID, roomID_1).Return(true, nil)
+				fc.EXPECT().IsFriend(mock.Anything, aliceID, bobID).Return(true, nil)
+				r.EXPECT().GetRoomType(mock.Anything, roomID_1).Return("direct", nil)
+			},
+			wantError: domain.ErrRoomNotFound,
 		},
 	}
 
@@ -237,6 +262,7 @@ func Test_Hub_InviteUser(t *testing.T) {
 		rRepo.EXPECT().CreateRoom(mock.Anything, "chat", aliceID).Return(&domain.Room{ID: roomID_1}, nil)
 		rRepo.EXPECT().IsMember(mock.Anything, aliceID, roomID_1).Return(true, nil)
 		rRepo.EXPECT().AddUser(mock.Anything, bobID, roomID_1).Return(nil)
+		rRepo.EXPECT().GetRoomType(mock.Anything, roomID_1).Return("group", nil)
 
 		fClientMock.EXPECT().IsFriend(mock.Anything, aliceID, bobID).Return(true, nil)
 
@@ -350,12 +376,13 @@ func Test_Hub_CreateRoom(t *testing.T) {
 		fClientMock := mocks.NewMockFriendshipClient(t)
 
 		h := newHub(t, uRepo, rRepo, mRepo, fClientMock)
-		rRepo.EXPECT().CreateRoom(mock.Anything, "general", userID_1).Return(&domain.Room{ID: roomID_1, Name: "general"}, nil)
+		roomName := "general"
+		rRepo.EXPECT().CreateRoom(mock.Anything, roomName, userID_1).Return(&domain.Room{ID: roomID_1, Name: &roomName}, nil)
 
-		room, err := h.CreateRoom(t.Context(), "general", userID_1)
+		room, err := h.CreateRoom(t.Context(), roomName, userID_1)
 		require.NoError(t, err)
 		assert.Equal(t, roomID_1, room.ID)
-		assert.Equal(t, "general", room.Name)
+		assert.Equal(t, roomName, *room.Name)
 	})
 
 	t.Run("repo error", func(t *testing.T) {
@@ -371,6 +398,8 @@ func Test_Hub_CreateRoom(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, room)
 	})
+
+	// TODO add create dm
 }
 
 func Test_Hub_GetRoomHistory(t *testing.T) {
@@ -383,7 +412,7 @@ func Test_Hub_GetRoomHistory(t *testing.T) {
 		h := newHub(t, uRepo, rRepo, mRepo, fClientMock)
 		rRepo.EXPECT().IsMember(mock.Anything, userID_1, roomID_1).Return(false, nil)
 
-		msgs, err := h.GetRoomHistory(t.Context(), userID_1, roomID_1, time.Time{})
+		msgs, err := h.GetRoomHistory(t.Context(), roomID_1, userID_1, time.Time{})
 		assert.ErrorIs(t, err, domain.ErrUserForbidden)
 		assert.Nil(t, msgs)
 	})
@@ -397,7 +426,7 @@ func Test_Hub_GetRoomHistory(t *testing.T) {
 		h := newHub(t, uRepo, rRepo, mRepo, fClientMock)
 		rRepo.EXPECT().IsMember(mock.Anything, userID_1, roomID_1).Return(false, errDB)
 
-		msgs, err := h.GetRoomHistory(t.Context(), userID_1, roomID_1, time.Time{})
+		msgs, err := h.GetRoomHistory(t.Context(), roomID_1, userID_1, time.Time{})
 		assert.Error(t, err)
 		assert.Nil(t, msgs)
 	})
@@ -413,7 +442,7 @@ func Test_Hub_GetRoomHistory(t *testing.T) {
 		expected := []*domain.Message{{Message: "hello"}}
 		mRepo.EXPECT().GetMessagesBefore(mock.Anything, roomID_1, mock.Anything).Return(expected, nil)
 
-		msgs, err := h.GetRoomHistory(t.Context(), userID_1, roomID_1, time.Time{})
+		msgs, err := h.GetRoomHistory(t.Context(), roomID_1, userID_1, time.Time{})
 		require.NoError(t, err)
 		assert.Equal(t, expected, msgs)
 	})
@@ -430,7 +459,7 @@ func Test_Hub_GetRoomHistory(t *testing.T) {
 		expected := []*domain.Message{{Message: "old message"}}
 		mRepo.EXPECT().GetMessagesBefore(mock.Anything, roomID_1, past).Return(expected, nil)
 
-		msgs, err := h.GetRoomHistory(t.Context(), userID_1, roomID_1, past)
+		msgs, err := h.GetRoomHistory(t.Context(), roomID_1, userID_1, past)
 		require.NoError(t, err)
 		assert.Equal(t, expected, msgs)
 	})
@@ -446,6 +475,7 @@ func Test_Hub_GetRoomsByUser(t *testing.T) {
 		h := newHub(t, uRepo, rRepo, mRepo, fClientMock)
 		expected := []*domain.Room{{ID: roomID_1}, {ID: "room-2"}}
 		rRepo.EXPECT().GetRoomsByUserID(mock.Anything, userID_1).Return(expected, nil)
+		rRepo.EXPECT().GetDMsByUserID(mock.Anything, userID_1).Return([]*domain.Room{}, nil)
 
 		rooms, err := h.GetRoomsByUser(t.Context(), userID_1)
 		require.NoError(t, err)

@@ -10,11 +10,9 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-// TODO
-// Now always force intvite even if user dont want join room
-// Update logic to:
-// 1. User sets availability of invites (alter table invite_available)
-// 2. make accept / decline logic. create table invites (inviter, invitee, room, created at) and show to user when he is online.
+// TODO change logic to soft invite, now force adding user to room
+//
+//nolint:revive // -
 func InviteUser(hub service.Hub) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		roomID := c.Param("roomId")

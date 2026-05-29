@@ -8,8 +8,10 @@ import (
 	"chat_service/internal/domain"
 	"chat_service/internal/pubsub"
 	"chat_service/internal/repository"
-	"chat_service/pkg/service_logger"
+	sl "chat_service/pkg/service_logger"
 )
+
+const roomSvcName = "chat.service.room"
 
 type Room interface {
 	AddUser(user User) error
@@ -92,8 +94,7 @@ func (r *room) Broadcast(ctx context.Context, msg *domain.Message) {
 }
 
 func (r *room) Run(ctx context.Context) {
-	const op = "chat.service.room.run"
-	l := r.logger.With(slog.String("op", op))
+	l := r.loggerWith(".run")
 
 	msgCh, unsub := r.ps.Subscribe(ctx, r.channelID())
 	defer unsub()
@@ -103,11 +104,11 @@ func (r *room) Run(ctx context.Context) {
 		case msg := <-r.in:
 			go func() {
 				if err := r.msgRepo.WriteMessage(ctx, msg); err != nil {
-					l.Error("error write msg to pg", service_logger.Err(err))
+					l.Error("failed to write msg to pg", sl.Err(err))
 				}
 			}()
 			if err := r.ps.Publish(ctx, r.channelID(), msg); err != nil {
-				l.Error("error publish message", service_logger.Err(err))
+				l.Error("failed to publish message", sl.Err(err))
 			}
 
 		case msg, ok := <-msgCh:
@@ -127,15 +128,14 @@ func (r *room) Run(ctx context.Context) {
 }
 
 func (r *room) sendAll(msg *domain.Message) {
-	const op = "chat.service.room.run"
-	l := r.logger.With(slog.String("op", op))
+	l := r.loggerWith(".sendall")
 
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	for _, user := range r.users {
 		err := user.Write(msg)
 		if err != nil {
-			l.Warn("error sending msg", slog.String("msg", err.Error()))
+			l.Warn("failed to send msg", sl.Err(err))
 		}
 	}
 }
@@ -163,4 +163,8 @@ func (r *room) GetUsernames() []string {
 
 func (r *room) channelID() string {
 	return "room:" + r.id
+}
+
+func (r *room) loggerWith(fnName string) *slog.Logger {
+	return r.logger.With("op", roomSvcName+fnName)
 }

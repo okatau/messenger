@@ -10,6 +10,7 @@ import type { Message } from '../components/chat_body';
 type Room = { id: string; name: string };
 type SearchUser = { id: string; username: string; email: string };
 type Friend = { id: string; username: string; email: string };
+type PendingDM = { friendId: string; friendName: string };
 
 const HISTORY_PAGE_SIZE = 50;
 
@@ -53,6 +54,10 @@ const Index = () => {
     const [friendsLoading, setFriendsLoading] = useState(false);
     const [inviteActionStatus, setInviteActionStatus] = useState<Record<string, 'accepted' | 'declined' | 'error'>>({});
 
+    // Pending DM (lazy creation on first message)
+    const [pendingDM, setPendingDM] = useState<PendingDM | null>(null);
+    const isCreatingDM = useRef(false);
+
     // Refs
     const textarea = useRef<HTMLTextAreaElement>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
@@ -81,8 +86,8 @@ const Index = () => {
         setFriendsLoading(true);
         try {
             const [friendsRes, invitesRes] = await Promise.all([
-                fetch('/api/v1/friends', { headers: { Authorization: `Bearer ${user.access_token}` } }),
-                fetch('/api/v1/friends/invites', { headers: { Authorization: `Bearer ${user.access_token}` } }),
+                fetch('/api/friends/list', { headers: { Authorization: `Bearer ${user.access_token}` } }),
+                fetch('/api/friends/invites', { headers: { Authorization: `Bearer ${user.access_token}` } }),
             ]);
             if (friendsRes.ok) setFriendsList((await friendsRes.json()) ?? []);
             if (invitesRes.ok) setInvitesList((await invitesRes.json()) ?? []);
@@ -173,7 +178,7 @@ const Index = () => {
 
     useEffect(() => {
         if (textarea.current) autosize(textarea.current);
-    }, [selectedRoom]);
+    }, [selectedRoom, pendingDM]);
 
     // Auto-scroll to bottom on new incoming messages (not history prepend)
     useEffect(() => {
@@ -202,11 +207,50 @@ const Index = () => {
         };
     }, [conn, user]);
 
-    const sendMessage = () => {
+    const createDM = async () => {
+        if (!pendingDM || isCreatingDM.current) return;
+        isCreatingDM.current = true;
+        try {
+            const res = await fetch('/api/rooms/dm', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${user.access_token}`,
+                },
+                body: JSON.stringify({ inviteeId: pendingDM.friendId }),
+            });
+            if (!res.ok) return;
+            const room = await res.json();
+            const newRoom = { id: room.id, name: pendingDM.friendName };
+            setRooms((prev) => [...prev, newRoom]);
+            setSelectedRoom(newRoom);
+            setPendingDM(null);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            isCreatingDM.current = false;
+        }
+    };
+
+    const sendMessage = async () => {
         if (!textarea.current?.value || !conn || !selectedRoom) return;
-        conn.send(JSON.stringify({ message: textarea.current.value, roomId: selectedRoom.id }));
+        const msg = textarea.current.value;
+        conn.send(JSON.stringify({ message: msg, roomId: selectedRoom.id }));
         textarea.current.value = '';
         autosize.update(textarea.current);
+    };
+
+    const openDM = (friend: Friend) => {
+        const existing = rooms.find((r) => r.name === friend.username);
+        if (existing) {
+            setPendingDM(null);
+            setSelectedRoom(existing);
+            return;
+        }
+        setSelectedRoom(null);
+        setMessages([]);
+        setRoomUsers([]);
+        setPendingDM({ friendId: friend.id, friendName: friend.username });
     };
 
     const createRoom = async () => {
@@ -257,7 +301,7 @@ const Index = () => {
         const timer = setTimeout(async () => {
             setSearchLoading(true);
             try {
-                const res = await fetch(`/api/v1/friends/search-friend?username=${encodeURIComponent(inviteUsername)}`, {
+                const res = await fetch(`/api/friends/search-friend?username=${encodeURIComponent(inviteUsername)}`, {
                     headers: { Authorization: `Bearer ${user.access_token}` },
                 });
                 if (res.ok) setSearchResults((await res.json()) ?? []);
@@ -278,7 +322,7 @@ const Index = () => {
         const timer = setTimeout(async () => {
             setAddFriendLoading(true);
             try {
-                const res = await fetch(`/api/v1/friends/search?username=${encodeURIComponent(addFriendUsername)}`, {
+                const res = await fetch(`/api/friends/search?username=${encodeURIComponent(addFriendUsername)}`, {
                     headers: { Authorization: `Bearer ${user.access_token}` },
                 });
                 if (res.ok) setAddFriendResults((await res.json()) ?? []);
@@ -293,7 +337,7 @@ const Index = () => {
 
     const sendFriendRequest = async (userId: string) => {
         try {
-            const res = await fetch('/api/v1/friends/add', {
+            const res = await fetch('/api/friends/add', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -310,7 +354,7 @@ const Index = () => {
 
     const respondToInvite = async (inviterId: string, action: 'accept' | 'decline') => {
         try {
-            const res = await fetch(`/api/v1/friends/${action}`, {
+            const res = await fetch(`/api/friends/${action}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -443,9 +487,14 @@ const Index = () => {
                                             <div className="text-xs text-grey-dark px-3 py-2">No friends yet</div>
                                         )}
                                         {friendsList.map((f) => (
-                                            <div key={f.id} className="px-3 py-2 text-sm text-dark-secondary border-b border-grey last:border-0">
-                                                {f.username}
-                                            </div>
+                                            <button
+                                                key={f.id}
+                                                onClick={() => openDM(f)}
+                                                className="w-full text-left px-3 py-2 text-sm text-dark-secondary border-b border-grey last:border-0 hover:bg-grey transition-colors flex items-center justify-between group"
+                                            >
+                                                <span>{f.username}</span>
+                                                <span className="text-xs text-blue opacity-0 group-hover:opacity-100">Message</span>
+                                            </button>
                                         ))}
                                     </div>
                                 </div>
@@ -491,10 +540,10 @@ const Index = () => {
 
                 {/* Center: chat body */}
                 <main className="flex flex-col flex-1 overflow-hidden bg-white">
-                    {selectedRoom ? (
+                    {(selectedRoom || pendingDM) ? (
                         <>
                             <div className="px-4 py-3 border-b border-grey text-sm font-semibold text-center shrink-0">
-                                {selectedRoom.name}
+                                {selectedRoom?.name ?? pendingDM?.friendName}
                             </div>
                             <div ref={containerRef} className="flex-1 overflow-y-auto p-4">
                                 <div ref={topSentinelRef} className="h-1" />
@@ -507,26 +556,35 @@ const Index = () => {
                                 <div ref={bottomRef} />
                             </div>
                             <div className="px-4 py-3 border-t border-grey shrink-0">
-                                <div className="flex gap-2 items-end">
-                                    <textarea
-                                        ref={textarea}
-                                        placeholder="Type your message..."
-                                        className="flex-1 border border-grey rounded-md p-2 text-sm focus:outline-none focus:border-blue"
-                                        style={{ resize: 'none', minHeight: '40px', maxHeight: '120px' }}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter' && !e.shiftKey) {
-                                                e.preventDefault();
-                                                sendMessage();
-                                            }
-                                        }}
-                                    />
+                                {pendingDM && !selectedRoom ? (
                                     <button
-                                        className="bg-blue text-white px-4 py-2 rounded-md text-sm shrink-0"
-                                        onClick={sendMessage}
+                                        className="w-full bg-blue text-white px-4 py-2 rounded-md text-sm"
+                                        onClick={createDM}
                                     >
-                                        Send
+                                        Start Chat with {pendingDM.friendName}
                                     </button>
-                                </div>
+                                ) : (
+                                    <div className="flex gap-2 items-end">
+                                        <textarea
+                                            ref={textarea}
+                                            placeholder="Type your message..."
+                                            className="flex-1 border border-grey rounded-md p-2 text-sm focus:outline-none focus:border-blue"
+                                            style={{ resize: 'none', minHeight: '40px', maxHeight: '120px' }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                    e.preventDefault();
+                                                    sendMessage();
+                                                }
+                                            }}
+                                        />
+                                        <button
+                                            className="bg-blue text-white px-4 py-2 rounded-md text-sm shrink-0"
+                                            onClick={sendMessage}
+                                        >
+                                            Send
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </>
                     ) : (

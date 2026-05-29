@@ -103,6 +103,80 @@ func (_c *MockHub_Connect_Call) RunAndReturn(run func(ctx context.Context, userI
 	return _c
 }
 
+// CreateDM provides a mock function for the type MockHub
+func (_mock *MockHub) CreateDM(ctx context.Context, userID string, inviteeID string) (*domain.Room, error) {
+	ret := _mock.Called(ctx, userID, inviteeID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateDM")
+	}
+
+	var r0 *domain.Room
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) (*domain.Room, error)); ok {
+		return returnFunc(ctx, userID, inviteeID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) *domain.Room); ok {
+		r0 = returnFunc(ctx, userID, inviteeID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*domain.Room)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = returnFunc(ctx, userID, inviteeID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockHub_CreateDM_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateDM'
+type MockHub_CreateDM_Call struct {
+	*mock.Call
+}
+
+// CreateDM is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+//   - inviteeID string
+func (_e *MockHub_Expecter) CreateDM(ctx interface{}, userID interface{}, inviteeID interface{}) *MockHub_CreateDM_Call {
+	return &MockHub_CreateDM_Call{Call: _e.mock.On("CreateDM", ctx, userID, inviteeID)}
+}
+
+func (_c *MockHub_CreateDM_Call) Run(run func(ctx context.Context, userID string, inviteeID string)) *MockHub_CreateDM_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHub_CreateDM_Call) Return(room *domain.Room, err error) *MockHub_CreateDM_Call {
+	_c.Call.Return(room, err)
+	return _c
+}
+
+func (_c *MockHub_CreateDM_Call) RunAndReturn(run func(ctx context.Context, userID string, inviteeID string) (*domain.Room, error)) *MockHub_CreateDM_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateRoom provides a mock function for the type MockHub
 func (_mock *MockHub) CreateRoom(ctx context.Context, roomName string, userID string) (*domain.Room, error) {
 	ret := _mock.Called(ctx, roomName, userID)
@@ -308,8 +382,8 @@ func (_c *MockHub_GetRoomClients_Call) RunAndReturn(run func(ctx context.Context
 }
 
 // GetRoomHistory provides a mock function for the type MockHub
-func (_mock *MockHub) GetRoomHistory(ctx context.Context, userID string, roomID string, before time.Time) ([]*domain.Message, error) {
-	ret := _mock.Called(ctx, userID, roomID, before)
+func (_mock *MockHub) GetRoomHistory(ctx context.Context, roomID string, userID string, before time.Time) ([]*domain.Message, error) {
+	ret := _mock.Called(ctx, roomID, userID, before)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetRoomHistory")
@@ -318,17 +392,17 @@ func (_mock *MockHub) GetRoomHistory(ctx context.Context, userID string, roomID 
 	var r0 []*domain.Message
 	var r1 error
 	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, time.Time) ([]*domain.Message, error)); ok {
-		return returnFunc(ctx, userID, roomID, before)
+		return returnFunc(ctx, roomID, userID, before)
 	}
 	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, time.Time) []*domain.Message); ok {
-		r0 = returnFunc(ctx, userID, roomID, before)
+		r0 = returnFunc(ctx, roomID, userID, before)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*domain.Message)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, time.Time) error); ok {
-		r1 = returnFunc(ctx, userID, roomID, before)
+		r1 = returnFunc(ctx, roomID, userID, before)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -342,14 +416,14 @@ type MockHub_GetRoomHistory_Call struct {
 
 // GetRoomHistory is a helper method to define mock.On call
 //   - ctx context.Context
-//   - userID string
 //   - roomID string
+//   - userID string
 //   - before time.Time
-func (_e *MockHub_Expecter) GetRoomHistory(ctx interface{}, userID interface{}, roomID interface{}, before interface{}) *MockHub_GetRoomHistory_Call {
-	return &MockHub_GetRoomHistory_Call{Call: _e.mock.On("GetRoomHistory", ctx, userID, roomID, before)}
+func (_e *MockHub_Expecter) GetRoomHistory(ctx interface{}, roomID interface{}, userID interface{}, before interface{}) *MockHub_GetRoomHistory_Call {
+	return &MockHub_GetRoomHistory_Call{Call: _e.mock.On("GetRoomHistory", ctx, roomID, userID, before)}
 }
 
-func (_c *MockHub_GetRoomHistory_Call) Run(run func(ctx context.Context, userID string, roomID string, before time.Time)) *MockHub_GetRoomHistory_Call {
+func (_c *MockHub_GetRoomHistory_Call) Run(run func(ctx context.Context, roomID string, userID string, before time.Time)) *MockHub_GetRoomHistory_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -382,7 +456,7 @@ func (_c *MockHub_GetRoomHistory_Call) Return(messages []*domain.Message, err er
 	return _c
 }
 
-func (_c *MockHub_GetRoomHistory_Call) RunAndReturn(run func(ctx context.Context, userID string, roomID string, before time.Time) ([]*domain.Message, error)) *MockHub_GetRoomHistory_Call {
+func (_c *MockHub_GetRoomHistory_Call) RunAndReturn(run func(ctx context.Context, roomID string, userID string, before time.Time) ([]*domain.Message, error)) *MockHub_GetRoomHistory_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -456,8 +530,8 @@ func (_c *MockHub_GetRoomsByUser_Call) RunAndReturn(run func(ctx context.Context
 }
 
 // InviteUser provides a mock function for the type MockHub
-func (_mock *MockHub) InviteUser(ctx context.Context, inviterID string, inviteeID string, roomID string) error {
-	ret := _mock.Called(ctx, inviterID, inviteeID, roomID)
+func (_mock *MockHub) InviteUser(ctx context.Context, userID string, inviteeID string, roomID string) error {
+	ret := _mock.Called(ctx, userID, inviteeID, roomID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for InviteUser")
@@ -465,7 +539,7 @@ func (_mock *MockHub) InviteUser(ctx context.Context, inviterID string, inviteeI
 
 	var r0 error
 	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string) error); ok {
-		r0 = returnFunc(ctx, inviterID, inviteeID, roomID)
+		r0 = returnFunc(ctx, userID, inviteeID, roomID)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -479,14 +553,14 @@ type MockHub_InviteUser_Call struct {
 
 // InviteUser is a helper method to define mock.On call
 //   - ctx context.Context
-//   - inviterID string
+//   - userID string
 //   - inviteeID string
 //   - roomID string
-func (_e *MockHub_Expecter) InviteUser(ctx interface{}, inviterID interface{}, inviteeID interface{}, roomID interface{}) *MockHub_InviteUser_Call {
-	return &MockHub_InviteUser_Call{Call: _e.mock.On("InviteUser", ctx, inviterID, inviteeID, roomID)}
+func (_e *MockHub_Expecter) InviteUser(ctx interface{}, userID interface{}, inviteeID interface{}, roomID interface{}) *MockHub_InviteUser_Call {
+	return &MockHub_InviteUser_Call{Call: _e.mock.On("InviteUser", ctx, userID, inviteeID, roomID)}
 }
 
-func (_c *MockHub_InviteUser_Call) Run(run func(ctx context.Context, inviterID string, inviteeID string, roomID string)) *MockHub_InviteUser_Call {
+func (_c *MockHub_InviteUser_Call) Run(run func(ctx context.Context, userID string, inviteeID string, roomID string)) *MockHub_InviteUser_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -519,7 +593,7 @@ func (_c *MockHub_InviteUser_Call) Return(err error) *MockHub_InviteUser_Call {
 	return _c
 }
 
-func (_c *MockHub_InviteUser_Call) RunAndReturn(run func(ctx context.Context, inviterID string, inviteeID string, roomID string) error) *MockHub_InviteUser_Call {
+func (_c *MockHub_InviteUser_Call) RunAndReturn(run func(ctx context.Context, userID string, inviteeID string, roomID string) error) *MockHub_InviteUser_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -583,6 +657,76 @@ func (_c *MockHub_LeaveRoom_Call) Return(err error) *MockHub_LeaveRoom_Call {
 }
 
 func (_c *MockHub_LeaveRoom_Call) RunAndReturn(run func(ctx context.Context, userID string, roomID string) error) *MockHub_LeaveRoom_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// JoinRoom provides a mock function for the type MockHub
+func (_mock *MockHub) JoinRoom(ctx context.Context, userID string, roomID string) (Room, error) {
+	ret := _mock.Called(ctx, userID, roomID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for JoinRoom")
+	}
+
+	var r0 Room
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) (Room, error)); ok {
+		return returnFunc(ctx, userID, roomID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) Room); ok {
+		r0 = returnFunc(ctx, userID, roomID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(Room)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = returnFunc(ctx, userID, roomID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockHub_JoinRoom_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'JoinRoom'
+type MockHub_JoinRoom_Call struct {
+	*mock.Call
+}
+
+// JoinRoom is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+//   - roomID string
+func (_e *MockHub_Expecter) JoinRoom(ctx interface{}, userID interface{}, roomID interface{}) *MockHub_JoinRoom_Call {
+	return &MockHub_JoinRoom_Call{Call: _e.mock.On("JoinRoom", ctx, userID, roomID)}
+}
+
+func (_c *MockHub_JoinRoom_Call) Run(run func(ctx context.Context, userID string, roomID string)) *MockHub_JoinRoom_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(arg0, arg1, arg2)
+	})
+	return _c
+}
+
+func (_c *MockHub_JoinRoom_Call) Return(room Room, err error) *MockHub_JoinRoom_Call {
+	_c.Call.Return(room, err)
+	return _c
+}
+
+func (_c *MockHub_JoinRoom_Call) RunAndReturn(run func(ctx context.Context, userID string, roomID string) (Room, error)) *MockHub_JoinRoom_Call {
 	_c.Call.Return(run)
 	return _c
 }

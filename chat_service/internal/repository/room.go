@@ -10,15 +10,20 @@ import (
 )
 
 type RoomRepository interface {
-	GetAllRooms(ctx context.Context) ([]*domain.Room, error)
-	GetRoomsByUserID(ctx context.Context, userID string) ([]*domain.Room, error)
-	GetUsersByRoomID(ctx context.Context, roomID string) ([]*domain.User, error)
+	CreateDM(ctx context.Context, user1ID, user2ID string) (*domain.Room, error)
 	CreateRoom(ctx context.Context, name, userID string) (*domain.Room, error)
 	DeleteRoom(ctx context.Context, roomID string) (*domain.Room, error)
 	AddUser(ctx context.Context, userID, roomID string) error
 	RemoveUser(ctx context.Context, userID, roomID string) error
+
 	IsMember(ctx context.Context, userID, roomID string) (bool, error)
 	IsEmpty(ctx context.Context, roomID string) (bool, error)
+
+	GetAllRooms(ctx context.Context) ([]*domain.Room, error)
+	GetRoomsByUserID(ctx context.Context, userID string) ([]*domain.Room, error)
+	GetUsersByRoomID(ctx context.Context, roomID string) ([]*domain.User, error)
+	GetDMsByUserID(ctx context.Context, userID string) ([]*domain.Room, error)
+	GetRoomType(ctx context.Context, roomID string) (string, error)
 }
 
 type roomRepo struct {
@@ -60,17 +65,15 @@ func (r *roomRepo) GetAllRooms(ctx context.Context) ([]*domain.Room, error) {
 
 func (r *roomRepo) GetRoomsByUserID(ctx context.Context, userID string) ([]*domain.Room, error) {
 	query := `
-		SELECT r.id, r.name, r.created_by, r.created_at FROM rooms r
+		SELECT r.id, r.name, r.created_by, r.created_at 
+		FROM rooms r
 		JOIN room_members rm ON rm.room_id = r.id
-		WHERE rm.user_id = $1
+		WHERE rm.user_id = $1 AND r.type = 'group'
 	`
 
 	var rooms []*domain.Room
 	rows, err := r.pool.Query(ctx, query, userID)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 	defer rows.Close()
@@ -202,4 +205,93 @@ func (r *roomRepo) IsEmpty(ctx context.Context, roomID string) (bool, error) {
 	var userExists bool
 	err := r.pool.QueryRow(ctx, query, roomID).Scan(&userExists)
 	return !userExists, err
+}
+
+func (r *roomRepo) CreateDM(ctx context.Context, user1ID, user2ID string) (*domain.Room, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	defer tx.Rollback(ctx) //nolint:errcheck // ignores if tx was successful
+
+	query := `
+		INSERT INTO rooms(created_by, type)
+		VALUES ($1, 'direct')
+		RETURNING id, created_by, created_at
+	`
+	var room domain.Room
+	if err := tx.QueryRow(ctx, query, user1ID).Scan(&room.ID, &room.CreatedBy, &room.CreatedAt); err != nil { //nolint:govet // does not matter
+		return nil, err
+	}
+
+	query = `
+		INSERT INTO direct_conversations(room_id, user1_id, user2_id)
+		VALUES ($1, LEAST($2::uuid, $3::uuid), GREATEST($2::uuid, $3::uuid))
+	`
+	if _, err := tx.Exec(ctx, query, room.ID, user1ID, user2ID); err != nil { //nolint:govet // does not matter
+		return nil, err
+	}
+
+	query = `
+		INSERT INTO room_members(room_id, user_id)
+		VALUES 
+			($1, $2),
+			($1, $3)
+	`
+	if _, err := tx.Exec(ctx, query, room.ID, user1ID, user2ID); err != nil { //nolint:govet // does not matter
+		return nil, err
+	}
+
+	err = tx.Commit(ctx)
+	return &room, err
+}
+
+func (r *roomRepo) GetDMsByUserID(ctx context.Context, userID string) ([]*domain.Room, error) {
+	query := `
+		SELECT
+			r.id          AS room_id,
+			CASE
+			WHEN dv.user1_id = $1 THEN u2.name
+			ELSE u1.name
+			END AS other_user_name,
+			r.created_by,
+			r.created_at
+		FROM direct_conversations dv
+		JOIN rooms r  ON r.id  = dv.room_id
+		JOIN users u1 ON u1.id = dv.user1_id
+		JOIN users u2 ON u2.id = dv.user2_id
+		WHERE dv.user1_id = $1
+			OR dv.user2_id = $1
+	`
+
+	rows, err := r.pool.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var rooms []*domain.Room
+	for rows.Next() {
+		var r domain.Room
+
+		if err := rows.Scan(&r.ID, &r.Name, &r.CreatedBy, &r.CreatedAt); err != nil {
+			return nil, err
+		}
+
+		rooms = append(rooms, &r)
+	}
+
+	return rooms, rows.Err()
+}
+
+func (r *roomRepo) GetRoomType(ctx context.Context, roomID string) (string, error) {
+	query := `
+		SELECT type
+		FROM rooms
+		WHERE id = $1
+	`
+	var roomType string
+	err := r.pool.QueryRow(ctx, query, roomID).Scan(&roomType)
+	return roomType, err
 }

@@ -40,7 +40,6 @@ func main() {
 	)
 
 	go func() {
-		comps.Logger.Info(fmt.Sprintf("listening chat service on %d", cfg.ServerConfig.Port))
 		if err := srv.Start(); err != nil {
 			comps.Logger.Error("auth service stopped: %v", service_logger.Err(err))
 		}
