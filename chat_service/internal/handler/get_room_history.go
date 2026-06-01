@@ -24,14 +24,14 @@ func GetRoomHistory(hub service.Hub) echo.HandlerFunc {
 		var history []*domain.Message
 		var err error
 		if rawts == "" {
-			history, err = hub.GetRoomHistory(c.Request().Context(), userID, roomID, time.Time{})
+			history, err = hub.GetRoomHistory(c.Request().Context(), roomID, userID, time.Time{})
 		} else {
 			var ts time.Time
 			ts, err = time.Parse(time.RFC3339, rawts)
 			if err != nil {
 				return echo.NewHTTPError(http.StatusBadRequest, "invalid before flag")
 			}
-			history, err = hub.GetRoomHistory(c.Request().Context(), userID, roomID, ts)
+			history, err = hub.GetRoomHistory(c.Request().Context(), roomID, userID, ts)
 		}
 
 		if err != nil {

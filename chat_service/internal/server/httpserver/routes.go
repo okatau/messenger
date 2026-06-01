@@ -17,7 +17,9 @@ func registreRoutes(router *echo.Echo, svc service.Hub) {
 	router.GET("", handler.GetRoom(svc), authMW)
 	router.GET("/:roomId/users", handler.GetUsersByRoom(svc), authMW)
 	router.GET("/:roomId/messages", handler.GetRoomHistory(svc), authMW)
+
 	router.POST("", handler.CreateRoom(svc), authMW)
+	router.POST("/dm", handler.CreateDM(svc), authMW)
 	router.POST("/:roomId/invite", handler.InviteUser(svc), authMW)
 	router.POST("/:roomId/leave", handler.LeaveRoom(svc), authMW)
 }

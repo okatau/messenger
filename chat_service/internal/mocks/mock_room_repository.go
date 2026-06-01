@@ -101,6 +101,80 @@ func (_c *MockRoomRepository_AddUser_Call) RunAndReturn(run func(ctx context.Con
 	return _c
 }
 
+// CreateDM provides a mock function for the type MockRoomRepository
+func (_mock *MockRoomRepository) CreateDM(ctx context.Context, user1ID string, user2ID string) (*domain.Room, error) {
+	ret := _mock.Called(ctx, user1ID, user2ID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateDM")
+	}
+
+	var r0 *domain.Room
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) (*domain.Room, error)); ok {
+		return returnFunc(ctx, user1ID, user2ID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) *domain.Room); ok {
+		r0 = returnFunc(ctx, user1ID, user2ID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*domain.Room)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = returnFunc(ctx, user1ID, user2ID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockRoomRepository_CreateDM_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateDM'
+type MockRoomRepository_CreateDM_Call struct {
+	*mock.Call
+}
+
+// CreateDM is a helper method to define mock.On call
+//   - ctx context.Context
+//   - user1ID string
+//   - user2ID string
+func (_e *MockRoomRepository_Expecter) CreateDM(ctx interface{}, user1ID interface{}, user2ID interface{}) *MockRoomRepository_CreateDM_Call {
+	return &MockRoomRepository_CreateDM_Call{Call: _e.mock.On("CreateDM", ctx, user1ID, user2ID)}
+}
+
+func (_c *MockRoomRepository_CreateDM_Call) Run(run func(ctx context.Context, user1ID string, user2ID string)) *MockRoomRepository_CreateDM_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockRoomRepository_CreateDM_Call) Return(room *domain.Room, err error) *MockRoomRepository_CreateDM_Call {
+	_c.Call.Return(room, err)
+	return _c
+}
+
+func (_c *MockRoomRepository_CreateDM_Call) RunAndReturn(run func(ctx context.Context, user1ID string, user2ID string) (*domain.Room, error)) *MockRoomRepository_CreateDM_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateRoom provides a mock function for the type MockRoomRepository
 func (_mock *MockRoomRepository) CreateRoom(ctx context.Context, name string, userID string) (*domain.Room, error) {
 	ret := _mock.Called(ctx, name, userID)
@@ -301,6 +375,140 @@ func (_c *MockRoomRepository_GetAllRooms_Call) Return(rooms []*domain.Room, err 
 }
 
 func (_c *MockRoomRepository_GetAllRooms_Call) RunAndReturn(run func(ctx context.Context) ([]*domain.Room, error)) *MockRoomRepository_GetAllRooms_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetDMsByUserID provides a mock function for the type MockRoomRepository
+func (_mock *MockRoomRepository) GetDMsByUserID(ctx context.Context, userID string) ([]*domain.Room, error) {
+	ret := _mock.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetDMsByUserID")
+	}
+
+	var r0 []*domain.Room
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) ([]*domain.Room, error)); ok {
+		return returnFunc(ctx, userID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) []*domain.Room); ok {
+		r0 = returnFunc(ctx, userID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*domain.Room)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(ctx, userID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockRoomRepository_GetDMsByUserID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetDMsByUserID'
+type MockRoomRepository_GetDMsByUserID_Call struct {
+	*mock.Call
+}
+
+// GetDMsByUserID is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+func (_e *MockRoomRepository_Expecter) GetDMsByUserID(ctx interface{}, userID interface{}) *MockRoomRepository_GetDMsByUserID_Call {
+	return &MockRoomRepository_GetDMsByUserID_Call{Call: _e.mock.On("GetDMsByUserID", ctx, userID)}
+}
+
+func (_c *MockRoomRepository_GetDMsByUserID_Call) Run(run func(ctx context.Context, userID string)) *MockRoomRepository_GetDMsByUserID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockRoomRepository_GetDMsByUserID_Call) Return(rooms []*domain.Room, err error) *MockRoomRepository_GetDMsByUserID_Call {
+	_c.Call.Return(rooms, err)
+	return _c
+}
+
+func (_c *MockRoomRepository_GetDMsByUserID_Call) RunAndReturn(run func(ctx context.Context, userID string) ([]*domain.Room, error)) *MockRoomRepository_GetDMsByUserID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetRoomType provides a mock function for the type MockRoomRepository
+func (_mock *MockRoomRepository) GetRoomType(ctx context.Context, roomID string) (string, error) {
+	ret := _mock.Called(ctx, roomID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetRoomType")
+	}
+
+	var r0 string
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (string, error)); ok {
+		return returnFunc(ctx, roomID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) string); ok {
+		r0 = returnFunc(ctx, roomID)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(ctx, roomID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockRoomRepository_GetRoomType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetRoomType'
+type MockRoomRepository_GetRoomType_Call struct {
+	*mock.Call
+}
+
+// GetRoomType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - roomID string
+func (_e *MockRoomRepository_Expecter) GetRoomType(ctx interface{}, roomID interface{}) *MockRoomRepository_GetRoomType_Call {
+	return &MockRoomRepository_GetRoomType_Call{Call: _e.mock.On("GetRoomType", ctx, roomID)}
+}
+
+func (_c *MockRoomRepository_GetRoomType_Call) Run(run func(ctx context.Context, roomID string)) *MockRoomRepository_GetRoomType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockRoomRepository_GetRoomType_Call) Return(s string, err error) *MockRoomRepository_GetRoomType_Call {
+	_c.Call.Return(s, err)
+	return _c
+}
+
+func (_c *MockRoomRepository_GetRoomType_Call) RunAndReturn(run func(ctx context.Context, roomID string) (string, error)) *MockRoomRepository_GetRoomType_Call {
 	_c.Call.Return(run)
 	return _c
 }

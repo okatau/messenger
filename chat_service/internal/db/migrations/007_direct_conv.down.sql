@@ -1,0 +1,5 @@
+DROP TABLE IF EXISTS direct_conversations;
+
+ALTER TABLE rooms
+    DROP COLUMN IF EXISTS type,
+    ALTER COLUMN name SET NOT NULL;

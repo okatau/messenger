@@ -15,34 +15,39 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const hubSvcName = "chat.service.hub"
+
 type Hub interface {
 	Connect(ctx context.Context, userID string, conn *websocket.Conn) error
 	Disconnect(userID string) (User, error)
 
-	InviteUser(ctx context.Context, inviterID, inviteeID, roomID string) error
+	InviteUser(ctx context.Context, userID, inviteeID, roomID string) error
 	LeaveRoom(ctx context.Context, userID, roomID string) error
 
 	CreateRoom(ctx context.Context, roomName, userID string) (*domain.Room, error)
+	CreateDM(ctx context.Context, userID, inviteeID string) (*domain.Room, error)
 
 	GetRoomClients(ctx context.Context, roomID string) ([]*domain.User, error)
-	GetRoomHistory(ctx context.Context, userID, roomID string, before time.Time) ([]*domain.Message, error)
+	GetRoomHistory(ctx context.Context, roomID, userID string, before time.Time) ([]*domain.Message, error)
 	GetRoomsByUser(ctx context.Context, userID string) ([]*domain.Room, error)
 
 	Shutdown()
 }
 
 type hub struct {
-	rooms         map[string]Room
-	users         map[string]User
-	mu            sync.RWMutex
-	ctx           context.Context
+	users               map[string]User
+	serverCancelContext context.Context
+
 	userRepo      repository.UserRepository
 	roomRepo      repository.RoomRepository
 	msgRepo       repository.MessageRepository
-	logger        *slog.Logger
-	wg            sync.WaitGroup
 	friendsClient clients.FriendshipClient
-	ps            pubsub.PubSub
+
+	logger *slog.Logger
+	ps     pubsub.PubSub
+
+	wg sync.WaitGroup
+	mu sync.RWMutex
 }
 
 func NewHub(
@@ -55,21 +60,20 @@ func NewHub(
 	ps pubsub.PubSub,
 ) Hub {
 	return &hub{
-		rooms:         make(map[string]Room),
-		users:         make(map[string]User),
-		ctx:           ctx,
-		userRepo:      userRepo,
-		roomRepo:      roomRepo,
-		msgRepo:       msgRepo,
-		logger:        logger,
-		friendsClient: friendsClient,
-		ps:            ps,
+		users:               make(map[string]User),
+		serverCancelContext: ctx,
+		userRepo:            userRepo,
+		roomRepo:            roomRepo,
+		msgRepo:             msgRepo,
+		friendsClient:       friendsClient,
+
+		logger: logger,
+		ps:     ps,
 	}
 }
 
 func (h *hub) Connect(ctx context.Context, userID string, conn *websocket.Conn) error {
-	const op = "chat.service.hub.connect"
-	l := h.logger.With(slog.String("op", op))
+	l := h.loggerWith(".connect")
 
 	user, err := h.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
@@ -85,27 +89,22 @@ func (h *hub) Connect(ctx context.Context, userID string, conn *websocket.Conn) 
 		l.Error("failed to get rooms", sl.Err(err))
 		return err
 	}
+	dms, err := h.roomRepo.GetDMsByUserID(ctx, userID)
+	if err != nil {
+		l.Error("failed to get dms", sl.Err(err))
+		return err
+	}
+
+	rooms = append(rooms, dms...)
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	newUser := NewUser(userID, user.Username, conn, h, l)
+	newUser := NewUser(userID, user.Username, conn, h.ps, h, l, h.msgRepo)
 	h.users[user.ID] = newUser
 
-	for _, roomDTO := range rooms {
-		room, exists := h.rooms[roomDTO.ID]
-		if !exists {
-			room = NewRoom(roomDTO.ID, h.msgRepo, h.ps, h.logger)
-			h.rooms[roomDTO.ID] = room
-			go room.Run(ctx)
-		}
-
-		if err := newUser.AddRoom(room); err != nil {
-			l.Error("error adding room", sl.Err(err))
-		}
-		if err := room.AddUser(newUser); err != nil {
-			l.Error("error adding user", sl.Err(err))
-		}
+	for _, room := range rooms {
+		newUser.AddRoomSub(ctx, room.ID)
 	}
 
 	newUser.Listen(ctx, &h.wg)
@@ -113,9 +112,6 @@ func (h *hub) Connect(ctx context.Context, userID string, conn *websocket.Conn) 
 }
 
 func (h *hub) Disconnect(userID string) (User, error) {
-	const op = "chat.service.hub.disconnect"
-	l := h.logger.With(slog.String("op", op))
-
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -125,42 +121,38 @@ func (h *hub) Disconnect(userID string) (User, error) {
 	}
 
 	delete(h.users, user.ID())
-
-	for _, room := range user.Rooms() {
-		if err := room.RemoveUser(user); err != nil {
-			l.Error("error removing user", sl.Err(err))
-		}
-
-		if room.IsEmpty() {
-			room.Stop()
-			delete(h.rooms, room.ID())
-		}
-	}
+	user.Stop()
 
 	return user, nil
 }
 
 // TODO semantics not invites user but add to chat.
-func (h *hub) InviteUser(ctx context.Context, inviterID, inviteeID, roomID string) error {
-	const op = "chat.service.hub.inviteuser"
-	l := h.logger.With(slog.String("op", op))
+func (h *hub) InviteUser(ctx context.Context, userID, inviteeID, roomID string) error {
+	l := h.loggerWith(".inviteuser")
 
-	isMember, err := h.roomRepo.IsMember(ctx, inviterID, roomID)
+	err := h.isMemberValidation(ctx, userID, roomID)
 	if err != nil {
-		l.Error("failed to check user", sl.Err(err))
+		l.Error("failed to validate membership", sl.Err(err))
 		return err
 	}
-	if !isMember {
-		return domain.ErrUserForbidden
-	}
 
-	isFriend, err := h.friendsClient.IsFriend(ctx, inviterID, inviteeID)
+	isFriend, err := h.friendsClient.IsFriend(ctx, userID, inviteeID)
 	if err != nil {
 		l.Error("failed to check friendship", sl.Err(err))
 		return err
 	}
 	if !isFriend {
 		return domain.ErrUserForbidden
+	}
+
+	roomType, err := h.roomRepo.GetRoomType(ctx, roomID)
+	if err != nil {
+		l.Error("failed to get room type", sl.Err(err))
+		return err
+	}
+	if roomType == "direct" {
+		l.Error("invalid room type")
+		return domain.ErrRoomNotFound
 	}
 
 	if err := h.roomRepo.AddUser(ctx, inviteeID, roomID); err != nil {
@@ -176,35 +168,18 @@ func (h *hub) InviteUser(ctx context.Context, inviterID, inviteeID, roomID strin
 		return nil
 	}
 
-	room, exists := h.rooms[roomID]
-	if !exists {
-		room = NewRoom(roomID, h.msgRepo, h.ps, h.logger)
-		h.rooms[roomID] = room
-		//nolint:contextcheck // using connection context
-		go room.Run(h.ctx)
-	}
-
-	if err := user.AddRoom(room); err != nil {
-		l.Error("error adding room", sl.Err(err))
-	}
-	if err := room.AddUser(user); err != nil {
-		l.Error("error adding user", sl.Err(err))
-	}
+	user.AddRoomSub(h.serverCancelContext, roomID) //nolint:contextcheck // uses server cancel context
 
 	return nil
 }
 
 func (h *hub) LeaveRoom(ctx context.Context, userID, roomID string) error {
-	const op = "chat.service.hub.leaveroom"
-	l := h.logger.With(slog.String("op", op))
+	l := h.loggerWith(".leaveroom")
 
-	isMember, err := h.roomRepo.IsMember(ctx, userID, roomID)
+	err := h.isMemberValidation(ctx, userID, roomID)
 	if err != nil {
-		l.Error("failed to check user", sl.Err(err))
+		l.Error("failed to validate membership", sl.Err(err))
 		return err
-	}
-	if !isMember {
-		return domain.ErrUserForbidden
 	}
 
 	if err = h.roomRepo.RemoveUser(ctx, userID, roomID); err != nil {
@@ -214,10 +189,9 @@ func (h *hub) LeaveRoom(ctx context.Context, userID, roomID string) error {
 
 	isEmpty, err := h.roomRepo.IsEmpty(ctx, roomID)
 	if err != nil {
-		l.Error("failed to IsEmpty", sl.Err(err))
+		l.Error("failed to check emptyness", sl.Err(err))
 		return err
 	}
-
 	if isEmpty {
 		if _, err := h.roomRepo.DeleteRoom(ctx, roomID); err != nil {
 			l.Error("failed to delete room", sl.Err(err))
@@ -232,29 +206,10 @@ func (h *hub) LeaveRoom(ctx context.Context, userID, roomID string) error {
 	if !online {
 		return nil
 	}
-
-	if room, exists := h.rooms[roomID]; exists {
-		if err := room.RemoveUser(user); err != nil {
-			l.Error("error removing user", sl.Err(err))
-		}
-		if err := user.DeleteRoom(room); err != nil {
-			l.Error("error deleting room", sl.Err(err))
-		}
-
-		if room.IsEmpty() {
-			room.Stop()
-			delete(h.rooms, roomID)
-		}
-	}
-
-	return nil
+	return user.RemoveRoomSub(roomID)
 }
 
 func (h *hub) Shutdown() {
-	const op = "chat.service.hub.shutdown"
-	l := h.logger.With(slog.String("op", op))
-	l.Info("shutting down hub")
-
 	h.mu.Lock()
 	for _, user := range h.users {
 		user.Stop()
@@ -265,55 +220,60 @@ func (h *hub) Shutdown() {
 }
 
 func (h *hub) CreateRoom(ctx context.Context, roomName, userID string) (*domain.Room, error) {
-	const op = "chat.service.hub.createroom"
-	l := h.logger.With(slog.String("op", op))
+	l := h.loggerWith(".createroom")
 
-	roomDTO, err := h.roomRepo.CreateRoom(ctx, roomName, userID)
+	room, err := h.roomRepo.CreateRoom(ctx, roomName, userID)
 	if err != nil {
-		l.Error("failed to create room", "userID", userID, "roomName", roomName)
+		l.Error("failed to create room", slog.String("userID", userID), sl.Err(err))
 		return nil, err
 	}
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	newRoom := NewRoom(roomDTO.ID, h.msgRepo, h.ps, h.logger)
-	h.rooms[roomDTO.ID] = newRoom
-	//nolint:contextcheck // using connection context
-	go newRoom.Run(h.ctx)
+	user, ok := h.users[userID]
+	if !ok {
+		return room, nil
+	}
+	user.AddRoomSub(h.serverCancelContext, room.ID) //nolint:contextcheck // uses server cancel context
 
-	if user, online := h.users[userID]; online {
-		if err := user.AddRoom(newRoom); err != nil {
-			l.Error("error adding room", sl.Err(err))
-		}
-		if err := newRoom.AddUser(user); err != nil {
-			l.Error("error adding user", sl.Err(err))
-		}
+	return room, nil
+}
+
+func (h *hub) CreateDM(ctx context.Context, userID, inviteeID string) (*domain.Room, error) {
+	l := h.loggerWith(".createdm")
+
+	room, err := h.roomRepo.CreateDM(ctx, userID, inviteeID)
+	if err != nil {
+		l.Error("failed to create room", "userID", userID, sl.Err(err))
+		return nil, err
 	}
 
-	return roomDTO, nil
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if user, ok := h.users[userID]; ok {
+		user.AddRoomSub(h.serverCancelContext, room.ID) //nolint:contextcheck // uses server cancel context
+	}
+
+	if invitee, ok := h.users[inviteeID]; ok {
+		invitee.AddRoomSub(h.serverCancelContext, room.ID) //nolint:contextcheck // uses server cancel context
+	}
+
+	return room, nil
 }
 
 func (h *hub) GetRoomClients(ctx context.Context, roomID string) ([]*domain.User, error) {
-	_, exists := h.rooms[roomID]
-	if !exists {
-		return nil, nil
-	}
-
 	return h.roomRepo.GetUsersByRoomID(ctx, roomID)
 }
 
-func (h *hub) GetRoomHistory(ctx context.Context, userID, roomID string, before time.Time) ([]*domain.Message, error) {
-	const op = "chat.service.hub.getroomhistory"
-	l := h.logger.With(slog.String("op", op))
+func (h *hub) GetRoomHistory(ctx context.Context, roomID, userID string, before time.Time) ([]*domain.Message, error) {
+	l := h.loggerWith(".getroomhistory")
 
-	isMember, err := h.roomRepo.IsMember(ctx, userID, roomID)
+	err := h.isMemberValidation(ctx, userID, roomID)
 	if err != nil {
-		l.Error("failed to check user", "userID", userID)
+		l.Error("failed to validate membership", sl.Err(err))
 		return nil, err
-	}
-	if !isMember {
-		return nil, domain.ErrUserForbidden
 	}
 
 	if before.IsZero() {
@@ -330,5 +290,35 @@ func (h *hub) GetRoomHistory(ctx context.Context, userID, roomID string, before 
 }
 
 func (h *hub) GetRoomsByUser(ctx context.Context, userID string) ([]*domain.Room, error) {
-	return h.roomRepo.GetRoomsByUserID(ctx, userID)
+	l := h.loggerWith(".getroomsbyuser")
+
+	rooms, err := h.roomRepo.GetRoomsByUserID(ctx, userID)
+	if err != nil {
+		l.Error("failed to get rooms", sl.Err(err))
+		return nil, err
+	}
+
+	dms, err := h.roomRepo.GetDMsByUserID(ctx, userID)
+	if err != nil {
+		l.Error("failed to get dms", sl.Err(err))
+		return nil, err
+	}
+
+	rooms = append(rooms, dms...)
+	return rooms, nil
+}
+
+func (h *hub) isMemberValidation(ctx context.Context, inviterID, roomID string) error {
+	isMember, err := h.roomRepo.IsMember(ctx, inviterID, roomID)
+	if err != nil {
+		return err
+	}
+	if !isMember {
+		return domain.ErrUserForbidden
+	}
+	return nil
+}
+
+func (h *hub) loggerWith(fnName string) *slog.Logger {
+	return h.logger.With("op", hubSvcName+fnName)
 }

@@ -3,7 +3,6 @@ package handler
 import (
 	"chat_service/internal/domain"
 	"chat_service/internal/service"
-	"fmt"
 	"net/http"
 	"testing"
 
@@ -46,7 +45,6 @@ func Test_GetUsersByRoom(t *testing.T) {
 			_, c, res := newContext(http.MethodGet, "/rooms", "")
 
 			tt.setup(svc, c)
-			fmt.Println(c.Param("roomID"))
 			err := GetUsersByRoom(svc)(c)
 
 			if tt.wantErr {

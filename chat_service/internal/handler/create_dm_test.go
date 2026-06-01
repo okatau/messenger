@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"testing"
@@ -15,15 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	errDB    = errors.New("db down")
-	aliceID  = "aliceid"
-	bobID    = "bobid"
-	roomID   = "roomid"
-	roomName = "room-1"
-)
-
-func Test_CreateRoom(t *testing.T) {
+func Test_CreateDM(t *testing.T) {
 	room := &domain.Room{
 		ID:   roomID,
 		Name: &roomName,
@@ -38,9 +29,9 @@ func Test_CreateRoom(t *testing.T) {
 	}{
 		{
 			name: "success",
-			body: fmt.Sprintf(`{"name": "%s"}`, roomName),
+			body: fmt.Sprintf(`{"inviteeId": "%s"}`, bobID),
 			setup: func(h *service.MockHub) {
-				h.EXPECT().CreateRoom(mock.Anything, roomName, aliceID).Return(room, nil)
+				h.EXPECT().CreateDM(mock.Anything, aliceID, bobID).Return(room, nil)
 			},
 			wantStatus: http.StatusCreated,
 		},
@@ -52,17 +43,24 @@ func Test_CreateRoom(t *testing.T) {
 			wantErr:    true,
 		},
 		{
-			name:       "invalid room name",
-			body:       fmt.Sprintf(`{"name": "%s"}`, ""),
+			name:       "invalid invitee id name",
+			body:       fmt.Sprintf(`{"inviteeId": "%s"}`, ""),
+			setup:      func(h *service.MockHub) {},
+			wantStatus: http.StatusBadRequest,
+			wantErr:    true,
+		},
+		{
+			name:       "user id equals invitee id",
+			body:       fmt.Sprintf(`{"inviteeId": "%s"}`, aliceID),
 			setup:      func(h *service.MockHub) {},
 			wantStatus: http.StatusBadRequest,
 			wantErr:    true,
 		},
 		{
 			name: "internal server error",
-			body: fmt.Sprintf(`{"name": "%s"}`, roomName),
+			body: fmt.Sprintf(`{"inviteeId": "%s"}`, bobID),
 			setup: func(h *service.MockHub) {
-				h.EXPECT().CreateRoom(mock.Anything, roomName, aliceID).Return((*domain.Room)(nil), errDB)
+				h.EXPECT().CreateDM(mock.Anything, aliceID, bobID).Return((*domain.Room)(nil), errDB)
 			},
 			wantStatus: http.StatusInternalServerError,
 			wantErr:    true,
@@ -75,9 +73,9 @@ func Test_CreateRoom(t *testing.T) {
 
 			tt.setup(svc)
 
-			_, c, res := newContext(http.MethodPost, "/rooms/", tt.body)
+			_, c, res := newContext(http.MethodPost, "/rooms/dm/", tt.body)
 			c.Set("userID", aliceID)
-			err := CreateRoom(svc)(c)
+			err := CreateDM(svc)(c)
 
 			if tt.wantErr {
 				var echoError *echo.HTTPError
