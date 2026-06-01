@@ -100,5 +100,7 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ matrix.service }}:${{ steps.version.outputs.value }}
             ${{ env.REGISTRY }}/${{ matrix.service }}:latest
+          build-args: |
+            ${{ matrix.service == 'frontend' && format('NEXT_PUBLIC_API_URL={0}', secrets.NEXT_PUBLIC_API_URL) || '' }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}

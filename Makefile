@@ -6,8 +6,9 @@ COMPOSE_STAGING = docker compose -f docker/docker-compose.prod.yml -f docker/doc
 
 COMPOSE_FLAGS = --project-directory docker
 
-REGISTRY ?= $(shell grep '^REGISTRY=' config/.env.prod 2>/dev/null | cut -d= -f2)
-VERSION  ?= $(shell git rev-parse --short HEAD)
+REGISTRY             ?= $(shell grep '^REGISTRY=' config/.env.prod 2>/dev/null | cut -d= -f2)
+VERSION              ?= $(shell git rev-parse --short HEAD)
+NEXT_PUBLIC_API_URL  ?= $(shell grep '^NEXT_PUBLIC_API_URL=' config/.env.prod 2>/dev/null | cut -d= -f2)
 
 local-up:
 	$(COMPOSE_LOCAL) $(ENV_FILE_LOCAL) $(COMPOSE_FLAGS) up -d --build
@@ -50,6 +51,7 @@ build-prod:
 	docker buildx build --platform linux/amd64,linux/arm64 --load \
 		-t $(REGISTRY)/friends:$(VERSION)  -t $(REGISTRY)/friends:latest  ./friends_service
 	docker buildx build --platform linux/amd64,linux/arm64 --load \
+		--build-arg NEXT_PUBLIC_API_URL=$(NEXT_PUBLIC_API_URL) \
 		-t $(REGISTRY)/frontend:$(VERSION) -t $(REGISTRY)/frontend:latest ./frontend
 	docker buildx build --platform linux/amd64,linux/arm64 --load \
 		-t $(REGISTRY)/api-gateway:$(VERSION) -t $(REGISTRY)/api-gateway:latest ./api_gateway

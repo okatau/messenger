@@ -11,6 +11,6 @@ redis:
     - redis-prod:6379
 
 origin_whitelist:
-  - "http://localhost:8080"
+  - "https://messenger.kabakov-timofei.ru"
 
 friends_grpc_addr: "friends-prod:50051"
