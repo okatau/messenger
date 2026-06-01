@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"chat_service/internal/domain"
+	"chat_service/internal/pubsub"
+	"chat_service/internal/repository"
 	sl "chat_service/pkg/service_logger"
 
 	ws "github.com/gorilla/websocket"
@@ -18,76 +20,107 @@ const (
 )
 
 type User interface {
-	AddRoom(room Room) error
-	DeleteRoom(room Room) error
-	Write(msg *domain.Message) error
+	AddRoomSub(ctx context.Context, room string)
+	RemoveRoomSub(room string) error
+
 	Listen(ctx context.Context, wg *sync.WaitGroup)
+
+	Stop()
+
 	ID() string
 	Name() string
-	Rooms() map[string]Room
-	Stop()
 }
 
 type user struct {
-	id          string
-	name        string
-	conn        *ws.Conn
-	rooms       map[string]Room
-	outgoingMsg chan *domain.Message
-	hub         Hub
-	logger      *slog.Logger
-	doneCh      chan struct{}
-	closeOnce   sync.Once
-	mu          sync.RWMutex
+	id   string
+	name string
+	conn *ws.Conn
+
+	subs   map[string]func() // roomid => sub
+	subsMu sync.Mutex
+	ps     pubsub.PubSub
+
+	outgoing chan *domain.Message
+
+	doneCh    chan struct{}
+	closeOnce sync.Once
+
+	hub     Hub
+	logger  *slog.Logger
+	msgRepo repository.MessageRepository
 }
 
 func NewUser(
 	id, name string,
 	conn *ws.Conn,
+	ps pubsub.PubSub,
 	hub Hub,
 	logger *slog.Logger,
+	msgRepo repository.MessageRepository,
 ) User {
 	return &user{
-		id:          id,
-		name:        name,
-		conn:        conn,
-		rooms:       make(map[string]Room),
-		outgoingMsg: make(chan *domain.Message, MaxBufSize),
-		hub:         hub,
-		logger:      logger,
-		doneCh:      make(chan struct{}),
+		id:   id,
+		name: name,
+		conn: conn,
+
+		subs: make(map[string]func()),
+		ps:   ps,
+
+		outgoing: make(chan *domain.Message, MaxBufSize),
+
+		doneCh: make(chan struct{}),
+
+		hub:     hub,
+		logger:  logger,
+		msgRepo: msgRepo,
 	}
 }
 
-func (u *user) AddRoom(room Room) error {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-	_, ok := u.rooms[room.ID()]
-	if ok {
-		return domain.ErrRoomExists
+func (u *user) AddRoomSub(ctx context.Context, roomID string) {
+	l := u.loggerWith(".addroomsub")
+	u.subsMu.Lock()
+	if _, exists := u.subs[roomID]; exists {
+		l.Info("room already exists", slog.String("userID", u.id), slog.String("roomID", roomID))
+		u.subsMu.Unlock()
+		return
 	}
-	u.rooms[room.ID()] = room
-	return nil
+
+	msgCh, unsub := u.ps.Subscribe(ctx, channelKey(roomID))
+	u.subs[roomID] = unsub
+	u.subsMu.Unlock()
+
+	go func() {
+		for {
+			select {
+			case msg, ok := <-msgCh:
+				if !ok {
+					return
+				}
+				select {
+				case u.outgoing <- msg:
+				default:
+					l.Warn("outgoing buffer full", slog.String("userID", u.id))
+				}
+
+			case <-u.doneCh:
+				return
+			}
+		}
+	}()
 }
 
-func (u *user) DeleteRoom(room Room) error {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-	_, ok := u.rooms[room.ID()]
+func (u *user) RemoveRoomSub(roomID string) error {
+	u.subsMu.Lock()
+	defer u.subsMu.Unlock()
+
+	unsub, ok := u.subs[roomID]
 	if !ok {
 		return domain.ErrRoomNotFound
 	}
-	delete(u.rooms, room.ID())
-	return nil
-}
 
-func (u *user) Write(msg *domain.Message) error {
-	select {
-	case u.outgoingMsg <- msg:
-	default:
-		u.closeOnce.Do(func() { close(u.doneCh) })
-		return domain.ErrUserDisconnected
-	}
+	delete(u.subs, roomID)
+	unsub()
+
 	return nil
 }
 
@@ -98,7 +131,7 @@ func (u *user) Listen(ctx context.Context, wg *sync.WaitGroup) {
 }
 
 func (u *user) listenWrite() {
-	l := u.loggerWith(".listenwritre")
+	l := u.loggerWith(".listenwrite")
 
 	for {
 		select {
@@ -106,10 +139,10 @@ func (u *user) listenWrite() {
 			l.Info("user done", slog.String("userID", u.id))
 			return
 
-		case msg := <-u.outgoingMsg:
+		case msg := <-u.outgoing:
 			if err := u.conn.WriteJSON(msg); err != nil {
 				u.closeOnce.Do(func() { close(u.doneCh) })
-				l.Info("failed to write message to user conn", slog.String("userID", u.id), sl.Err(err))
+				l.Info("failed to write message to conn", slog.String("userID", u.id), sl.Err(err))
 			}
 		}
 	}
@@ -120,7 +153,7 @@ func (u *user) listenRead(ctx context.Context) {
 
 	defer func() {
 		if err := u.conn.Close(); err != nil {
-			l.Error("error during closing ws connection", sl.Err(err))
+			l.Error("error closing ws connection", sl.Err(err))
 		}
 		u.hub.Disconnect(u.id) //nolint:errcheck // no need to check error
 	}()
@@ -132,64 +165,54 @@ func (u *user) listenRead(ctx context.Context) {
 			return
 
 		case <-ctx.Done():
-			l.Info("user ctx done", slog.String("userID", u.id))
+			l.Info("ctx done", slog.String("userID", u.id))
 			return
 
 		default:
 			msg := domain.Message{}
-			err := u.conn.ReadJSON(&msg)
-			if err != nil {
+			if err := u.conn.ReadJSON(&msg); err != nil {
 				u.closeOnce.Do(func() { close(u.doneCh) })
 				l.Info("failed to read message from conn", slog.String("userID", u.id), sl.Err(err))
 				return
-			} else {
-				u.mu.RLock()
-				room := u.rooms[msg.RoomID]
-				u.mu.RUnlock()
-				if room == nil {
-					joined, err := u.hub.JoinRoom(ctx, u.id, msg.RoomID)
-					if err != nil || joined == nil {
-						l.Info("room does not exist", slog.String("roomID", msg.RoomID))
-						continue
-					}
-					room = joined
+			}
+
+			u.subsMu.Lock()
+			_, subscribed := u.subs[msg.RoomID]
+			u.subsMu.Unlock()
+
+			if !subscribed {
+				l.Info("not subscribed to room", slog.String("userID", u.id), slog.String("roomID", msg.RoomID))
+				continue
+			}
+
+			msg.UserID = u.id
+			msg.Username = u.name
+			msg.Timestamp = time.Now().UTC()
+			// TODO group adding msg to db and redis
+			go func(m domain.Message) {
+				if err := u.msgRepo.WriteMessage(ctx, &m); err != nil {
+					l.Error("failed to write message to db", sl.Err(err))
 				}
-				msg.UserID = u.id
-				msg.Username = u.name
-				msg.Timestamp = time.Now().UTC()
-				room.Broadcast(ctx, &msg)
+			}(msg)
+			if err := u.ps.Publish(ctx, channelKey(msg.RoomID), &msg); err != nil {
+				l.Error("failed to publish message to pub sub", sl.Err(err))
 			}
 		}
 	}
 }
 
-func (u *user) ID() string {
-	return u.id
-}
+func (u *user) ID() string { return u.id }
 
-func (u *user) Name() string {
-	return u.name
-}
-
-func (u *user) Rooms() map[string]Room {
-	u.mu.RLock()
-	defer u.mu.RUnlock()
-	rooms := make(map[string]Room, len(u.rooms))
-	for k, v := range u.rooms {
-		rooms[k] = v
-	}
-	return rooms
-}
+func (u *user) Name() string { return u.name }
 
 func (u *user) Stop() {
-	u.mu.Lock()
-	err := u.conn.Close()
-	if err != nil {
-		u.loggerWith(".stop").Error("error during connection closing", sl.Err(err))
-	}
-	u.mu.Unlock()
+	u.closeOnce.Do(func() { close(u.doneCh) })
 }
 
 func (u *user) loggerWith(fnName string) *slog.Logger {
 	return u.logger.With("op", userSvcName+fnName)
+}
+
+func channelKey(roomID string) string {
+	return "room:" + roomID
 }

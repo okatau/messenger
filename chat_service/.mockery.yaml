@@ -8,10 +8,6 @@ packages:
         config:
           dir: internal/service
           pkgname: service
-      Room:
-        config:
-          dir: internal/service
-          pkgname: service
       User:
         config:
           dir: internal/service

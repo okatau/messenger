@@ -5,7 +5,6 @@
 package service
 
 import (
-	"chat_service/internal/domain"
 	"context"
 	"sync"
 
@@ -39,105 +38,49 @@ func (_m *MockUser) EXPECT() *MockUser_Expecter {
 	return &MockUser_Expecter{mock: &_m.Mock}
 }
 
-// AddRoom provides a mock function for the type MockUser
-func (_mock *MockUser) AddRoom(room Room) error {
-	ret := _mock.Called(room)
-
-	if len(ret) == 0 {
-		panic("no return value specified for AddRoom")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(Room) error); ok {
-		r0 = returnFunc(room)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
+// AddRoomSub provides a mock function for the type MockUser
+func (_mock *MockUser) AddRoomSub(ctx context.Context, room string) {
+	_mock.Called(ctx, room)
+	return
 }
 
-// MockUser_AddRoom_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AddRoom'
-type MockUser_AddRoom_Call struct {
+// MockUser_AddRoomSub_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AddRoomSub'
+type MockUser_AddRoomSub_Call struct {
 	*mock.Call
 }
 
-// AddRoom is a helper method to define mock.On call
-//   - room Room
-func (_e *MockUser_Expecter) AddRoom(room interface{}) *MockUser_AddRoom_Call {
-	return &MockUser_AddRoom_Call{Call: _e.mock.On("AddRoom", room)}
+// AddRoomSub is a helper method to define mock.On call
+//   - ctx context.Context
+//   - room string
+func (_e *MockUser_Expecter) AddRoomSub(ctx interface{}, room interface{}) *MockUser_AddRoomSub_Call {
+	return &MockUser_AddRoomSub_Call{Call: _e.mock.On("AddRoomSub", ctx, room)}
 }
 
-func (_c *MockUser_AddRoom_Call) Run(run func(room Room)) *MockUser_AddRoom_Call {
+func (_c *MockUser_AddRoomSub_Call) Run(run func(ctx context.Context, room string)) *MockUser_AddRoomSub_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 Room
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(Room)
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
 		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
 }
 
-func (_c *MockUser_AddRoom_Call) Return(err error) *MockUser_AddRoom_Call {
-	_c.Call.Return(err)
+func (_c *MockUser_AddRoomSub_Call) Return() *MockUser_AddRoomSub_Call {
+	_c.Call.Return()
 	return _c
 }
 
-func (_c *MockUser_AddRoom_Call) RunAndReturn(run func(room Room) error) *MockUser_AddRoom_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// DeleteRoom provides a mock function for the type MockUser
-func (_mock *MockUser) DeleteRoom(room Room) error {
-	ret := _mock.Called(room)
-
-	if len(ret) == 0 {
-		panic("no return value specified for DeleteRoom")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(Room) error); ok {
-		r0 = returnFunc(room)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// MockUser_DeleteRoom_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteRoom'
-type MockUser_DeleteRoom_Call struct {
-	*mock.Call
-}
-
-// DeleteRoom is a helper method to define mock.On call
-//   - room Room
-func (_e *MockUser_Expecter) DeleteRoom(room interface{}) *MockUser_DeleteRoom_Call {
-	return &MockUser_DeleteRoom_Call{Call: _e.mock.On("DeleteRoom", room)}
-}
-
-func (_c *MockUser_DeleteRoom_Call) Run(run func(room Room)) *MockUser_DeleteRoom_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 Room
-		if args[0] != nil {
-			arg0 = args[0].(Room)
-		}
-		run(
-			arg0,
-		)
-	})
-	return _c
-}
-
-func (_c *MockUser_DeleteRoom_Call) Return(err error) *MockUser_DeleteRoom_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *MockUser_DeleteRoom_Call) RunAndReturn(run func(room Room) error) *MockUser_DeleteRoom_Call {
-	_c.Call.Return(run)
+func (_c *MockUser_AddRoomSub_Call) RunAndReturn(run func(ctx context.Context, room string)) *MockUser_AddRoomSub_Call {
+	_c.Run(run)
 	return _c
 }
 
@@ -275,48 +218,59 @@ func (_c *MockUser_Name_Call) RunAndReturn(run func() string) *MockUser_Name_Cal
 	return _c
 }
 
-// Rooms provides a mock function for the type MockUser
-func (_mock *MockUser) Rooms() map[string]Room {
-	ret := _mock.Called()
+// RemoveRoomSub provides a mock function for the type MockUser
+func (_mock *MockUser) RemoveRoomSub(ctx context.Context, room string) error {
+	ret := _mock.Called(ctx, room)
 
 	if len(ret) == 0 {
-		panic("no return value specified for Rooms")
+		panic("no return value specified for RemoveRoomSub")
 	}
 
-	var r0 map[string]Room
-	if returnFunc, ok := ret.Get(0).(func() map[string]Room); ok {
-		r0 = returnFunc()
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = returnFunc(ctx, room)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[string]Room)
-		}
+		r0 = ret.Error(0)
 	}
 	return r0
 }
 
-// MockUser_Rooms_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Rooms'
-type MockUser_Rooms_Call struct {
+// MockUser_RemoveRoomSub_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RemoveRoomSub'
+type MockUser_RemoveRoomSub_Call struct {
 	*mock.Call
 }
 
-// Rooms is a helper method to define mock.On call
-func (_e *MockUser_Expecter) Rooms() *MockUser_Rooms_Call {
-	return &MockUser_Rooms_Call{Call: _e.mock.On("Rooms")}
+// RemoveRoomSub is a helper method to define mock.On call
+//   - ctx context.Context
+//   - room string
+func (_e *MockUser_Expecter) RemoveRoomSub(ctx interface{}, room interface{}) *MockUser_RemoveRoomSub_Call {
+	return &MockUser_RemoveRoomSub_Call{Call: _e.mock.On("RemoveRoomSub", ctx, room)}
 }
 
-func (_c *MockUser_Rooms_Call) Run(run func()) *MockUser_Rooms_Call {
+func (_c *MockUser_RemoveRoomSub_Call) Run(run func(ctx context.Context, room string)) *MockUser_RemoveRoomSub_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
 	})
 	return _c
 }
 
-func (_c *MockUser_Rooms_Call) Return(stringToRoom map[string]Room) *MockUser_Rooms_Call {
-	_c.Call.Return(stringToRoom)
+func (_c *MockUser_RemoveRoomSub_Call) Return(err error) *MockUser_RemoveRoomSub_Call {
+	_c.Call.Return(err)
 	return _c
 }
 
-func (_c *MockUser_Rooms_Call) RunAndReturn(run func() map[string]Room) *MockUser_Rooms_Call {
+func (_c *MockUser_RemoveRoomSub_Call) RunAndReturn(run func(ctx context.Context, room string) error) *MockUser_RemoveRoomSub_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -351,56 +305,5 @@ func (_c *MockUser_Stop_Call) Return() *MockUser_Stop_Call {
 
 func (_c *MockUser_Stop_Call) RunAndReturn(run func()) *MockUser_Stop_Call {
 	_c.Run(run)
-	return _c
-}
-
-// Write provides a mock function for the type MockUser
-func (_mock *MockUser) Write(msg *domain.Message) error {
-	ret := _mock.Called(msg)
-
-	if len(ret) == 0 {
-		panic("no return value specified for Write")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(*domain.Message) error); ok {
-		r0 = returnFunc(msg)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// MockUser_Write_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Write'
-type MockUser_Write_Call struct {
-	*mock.Call
-}
-
-// Write is a helper method to define mock.On call
-//   - msg *domain.Message
-func (_e *MockUser_Expecter) Write(msg interface{}) *MockUser_Write_Call {
-	return &MockUser_Write_Call{Call: _e.mock.On("Write", msg)}
-}
-
-func (_c *MockUser_Write_Call) Run(run func(msg *domain.Message)) *MockUser_Write_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 *domain.Message
-		if args[0] != nil {
-			arg0 = args[0].(*domain.Message)
-		}
-		run(
-			arg0,
-		)
-	})
-	return _c
-}
-
-func (_c *MockUser_Write_Call) Return(err error) *MockUser_Write_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *MockUser_Write_Call) RunAndReturn(run func(msg *domain.Message) error) *MockUser_Write_Call {
-	_c.Call.Return(run)
 	return _c
 }
