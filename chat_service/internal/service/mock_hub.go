@@ -40,6 +40,69 @@ func (_m *MockHub) EXPECT() *MockHub_Expecter {
 	return &MockHub_Expecter{mock: &_m.Mock}
 }
 
+// ChangeInviteAvailability provides a mock function for the type MockHub
+func (_mock *MockHub) ChangeInviteAvailability(ctx context.Context, userID string, availability bool) error {
+	ret := _mock.Called(ctx, userID, availability)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ChangeInviteAvailability")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, bool) error); ok {
+		r0 = returnFunc(ctx, userID, availability)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockHub_ChangeInviteAvailability_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ChangeInviteAvailability'
+type MockHub_ChangeInviteAvailability_Call struct {
+	*mock.Call
+}
+
+// ChangeInviteAvailability is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+//   - availability bool
+func (_e *MockHub_Expecter) ChangeInviteAvailability(ctx interface{}, userID interface{}, availability interface{}) *MockHub_ChangeInviteAvailability_Call {
+	return &MockHub_ChangeInviteAvailability_Call{Call: _e.mock.On("ChangeInviteAvailability", ctx, userID, availability)}
+}
+
+func (_c *MockHub_ChangeInviteAvailability_Call) Run(run func(ctx context.Context, userID string, availability bool)) *MockHub_ChangeInviteAvailability_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 bool
+		if args[2] != nil {
+			arg2 = args[2].(bool)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHub_ChangeInviteAvailability_Call) Return(err error) *MockHub_ChangeInviteAvailability_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockHub_ChangeInviteAvailability_Call) RunAndReturn(run func(ctx context.Context, userID string, availability bool) error) *MockHub_ChangeInviteAvailability_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Connect provides a mock function for the type MockHub
 func (_mock *MockHub) Connect(ctx context.Context, userID string, conn *websocket.Conn) error {
 	ret := _mock.Called(ctx, userID, conn)
@@ -309,6 +372,72 @@ func (_c *MockHub_Disconnect_Call) Return(user User, err error) *MockHub_Disconn
 }
 
 func (_c *MockHub_Disconnect_Call) RunAndReturn(run func(userID string) (User, error)) *MockHub_Disconnect_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetInviteAvailability provides a mock function for the type MockHub
+func (_mock *MockHub) GetInviteAvailability(ctx context.Context, userID string) (bool, error) {
+	ret := _mock.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetInviteAvailability")
+	}
+
+	var r0 bool
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (bool, error)); ok {
+		return returnFunc(ctx, userID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) bool); ok {
+		r0 = returnFunc(ctx, userID)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(ctx, userID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockHub_GetInviteAvailability_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetInviteAvailability'
+type MockHub_GetInviteAvailability_Call struct {
+	*mock.Call
+}
+
+// GetInviteAvailability is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+func (_e *MockHub_Expecter) GetInviteAvailability(ctx interface{}, userID interface{}) *MockHub_GetInviteAvailability_Call {
+	return &MockHub_GetInviteAvailability_Call{Call: _e.mock.On("GetInviteAvailability", ctx, userID)}
+}
+
+func (_c *MockHub_GetInviteAvailability_Call) Run(run func(ctx context.Context, userID string)) *MockHub_GetInviteAvailability_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHub_GetInviteAvailability_Call) Return(b bool, err error) *MockHub_GetInviteAvailability_Call {
+	_c.Call.Return(b, err)
+	return _c
+}
+
+func (_c *MockHub_GetInviteAvailability_Call) RunAndReturn(run func(ctx context.Context, userID string) (bool, error)) *MockHub_GetInviteAvailability_Call {
 	_c.Call.Return(run)
 	return _c
 }

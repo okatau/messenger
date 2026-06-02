@@ -219,16 +219,16 @@ func (_c *MockUser_Name_Call) RunAndReturn(run func() string) *MockUser_Name_Cal
 }
 
 // RemoveRoomSub provides a mock function for the type MockUser
-func (_mock *MockUser) RemoveRoomSub(ctx context.Context, room string) error {
-	ret := _mock.Called(ctx, room)
+func (_mock *MockUser) RemoveRoomSub(room string) error {
+	ret := _mock.Called(room)
 
 	if len(ret) == 0 {
 		panic("no return value specified for RemoveRoomSub")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = returnFunc(ctx, room)
+	if returnFunc, ok := ret.Get(0).(func(string) error); ok {
+		r0 = returnFunc(room)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -241,25 +241,19 @@ type MockUser_RemoveRoomSub_Call struct {
 }
 
 // RemoveRoomSub is a helper method to define mock.On call
-//   - ctx context.Context
 //   - room string
-func (_e *MockUser_Expecter) RemoveRoomSub(ctx interface{}, room interface{}) *MockUser_RemoveRoomSub_Call {
-	return &MockUser_RemoveRoomSub_Call{Call: _e.mock.On("RemoveRoomSub", ctx, room)}
+func (_e *MockUser_Expecter) RemoveRoomSub(room interface{}) *MockUser_RemoveRoomSub_Call {
+	return &MockUser_RemoveRoomSub_Call{Call: _e.mock.On("RemoveRoomSub", room)}
 }
 
-func (_c *MockUser_RemoveRoomSub_Call) Run(run func(ctx context.Context, room string)) *MockUser_RemoveRoomSub_Call {
+func (_c *MockUser_RemoveRoomSub_Call) Run(run func(room string)) *MockUser_RemoveRoomSub_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
+		var arg0 string
 		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 string
-		if args[1] != nil {
-			arg1 = args[1].(string)
+			arg0 = args[0].(string)
 		}
 		run(
 			arg0,
-			arg1,
 		)
 	})
 	return _c
@@ -270,7 +264,7 @@ func (_c *MockUser_RemoveRoomSub_Call) Return(err error) *MockUser_RemoveRoomSub
 	return _c
 }
 
-func (_c *MockUser_RemoveRoomSub_Call) RunAndReturn(run func(ctx context.Context, room string) error) *MockUser_RemoveRoomSub_Call {
+func (_c *MockUser_RemoveRoomSub_Call) RunAndReturn(run func(room string) error) *MockUser_RemoveRoomSub_Call {
 	_c.Call.Return(run)
 	return _c
 }
