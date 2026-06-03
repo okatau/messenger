@@ -54,6 +54,12 @@ const Index = () => {
     const [friendsLoading, setFriendsLoading] = useState(false);
     const [inviteActionStatus, setInviteActionStatus] = useState<Record<string, 'accepted' | 'declined' | 'error'>>({});
 
+    // Burger menu
+    const [showBurger, setShowBurger] = useState(false);
+    const [inviteAvailable, setInviteAvailable] = useState<boolean | null>(null);
+    const [inviteAvailLoading, setInviteAvailLoading] = useState(false);
+    const burgerRef = useRef<HTMLDivElement>(null);
+
     // Pending DM (lazy creation on first message)
     const [pendingDM, setPendingDM] = useState<PendingDM | null>(null);
     const isCreatingDM = useRef(false);
@@ -374,6 +380,55 @@ const Index = () => {
         }
     };
 
+    const fetchInviteAvailability = useCallback(async () => {
+        try {
+            const res = await fetch('/api/rooms/invite-avil', {
+                headers: { Authorization: `Bearer ${user.access_token}` },
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setInviteAvailable(data.available);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }, [user.access_token]);
+
+    const toggleInviteAvailability = async () => {
+        if (inviteAvailable === null) return;
+        setInviteAvailLoading(true);
+        try {
+            await fetch('/api/rooms/invite-avil', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${user.access_token}`,
+                },
+                body: JSON.stringify({ availability: !inviteAvailable }),
+            });
+            setInviteAvailable((prev) => !prev);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setInviteAvailLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (showBurger && inviteAvailable === null) fetchInviteAvailability();
+    }, [showBurger, inviteAvailable, fetchInviteAvailability]);
+
+    useEffect(() => {
+        if (!showBurger) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            if (burgerRef.current && !burgerRef.current.contains(e.target as Node)) {
+                setShowBurger(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [showBurger]);
+
     const inviteUser = async (userId: string) => {
         if (!selectedRoom) return;
         try {
@@ -400,6 +455,48 @@ const Index = () => {
             {/* Header */}
             <header className="flex items-center justify-between px-6 py-3 border-b border-grey bg-white shrink-0">
                 <div className="flex items-center gap-4">
+                    {/* Burger menu */}
+                    <div className="relative" ref={burgerRef}>
+                        <button
+                            className="flex flex-col justify-center gap-1 w-6 h-6 shrink-0"
+                            onClick={() => setShowBurger((v) => !v)}
+                            aria-label="Menu"
+                        >
+                            <span className="block h-0.5 w-full bg-dark-secondary rounded" />
+                            <span className="block h-0.5 w-full bg-dark-secondary rounded" />
+                            <span className="block h-0.5 w-full bg-dark-secondary rounded" />
+                        </button>
+                        {showBurger && (
+                            <div className="absolute left-0 top-full mt-2 w-60 bg-white border border-grey rounded-lg shadow-lg z-50 p-4">
+                                <div className="text-xs font-bold text-grey-dark uppercase tracking-wide mb-3">Settings</div>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <div className="text-sm text-dark-secondary font-medium">Invite availability</div>
+                                        <div className="text-xs text-grey-dark mt-0.5">
+                                            {inviteAvailable === null
+                                                ? 'Loading...'
+                                                : inviteAvailable
+                                                    ? 'Others can invite you to chats'
+                                                    : 'Invitations are blocked'}
+                                        </div>
+                                    </div>
+                                    <button
+                                        disabled={inviteAvailable === null || inviteAvailLoading}
+                                        onClick={toggleInviteAvailability}
+                                        className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${
+                                            inviteAvailable ? 'bg-blue' : 'bg-grey'
+                                        } ${inviteAvailable === null || inviteAvailLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                                    >
+                                        <span
+                                            className={`inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform ${
+                                                inviteAvailable ? 'translate-x-5' : 'translate-x-0'
+                                            }`}
+                                        />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                     <span className="font-bold text-blue">{user.username}</span>
                     <div className="w-px h-4 bg-grey" />
                     <button
