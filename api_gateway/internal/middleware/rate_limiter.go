@@ -1,4 +1,4 @@
-package rate_limiter
+package middleware
 
 import (
 	"log/slog"
@@ -20,19 +20,21 @@ func RateLimitByIP(limiter *redis_rate.Limiter, logger *slog.Logger, limitRate i
 				var err error
 				ip, _, err = net.SplitHostPort(c.Request().RemoteAddr)
 				if err != nil {
-					return echo.NewHTTPError(http.StatusBadRequest, "error parsing ip")
+					return echo.NewHTTPError(http.StatusBadRequest, "invalid ip")
 				}
+			} else if net.ParseIP(ip) == nil {
+				return echo.NewHTTPError(http.StatusBadRequest, "invalid ip")
 			}
 			key := ip + ":" + c.Request().URL.Path
 
 			res, err := limiter.Allow(c.Request().Context(), key, limit)
 			if err != nil {
-				l.Error("rate limiter redis error", slog.String("err", err.Error()))
-				return echo.NewHTTPError(http.StatusInternalServerError, "error getting limits")
+				l.Error("redis error", slog.String("err", err.Error()))
+				return echo.NewHTTPError(http.StatusInternalServerError, "internal server error")
 			}
 			if res.Allowed == 0 {
-				l.Warn("rate limit exceeded", slog.String("ip", ip))
-				return echo.NewHTTPError(http.StatusTooManyRequests, "request limit exceeded")
+				l.Warn("limit exceeded", slog.String("ip", ip))
+				return echo.NewHTTPError(http.StatusTooManyRequests, "limit exceeded")
 			}
 
 			return next(c)
@@ -52,12 +54,12 @@ func RateLimitByUser(limiter *redis_rate.Limiter, logger *slog.Logger, limitRate
 
 			res, err := limiter.Allow(c.Request().Context(), key, limit)
 			if err != nil {
-				l.Error("rate limiter redis error", slog.String("err", err.Error()))
-				return echo.NewHTTPError(http.StatusInternalServerError, "error getting limits")
+				l.Error("redis error", slog.String("err", err.Error()))
+				return echo.NewHTTPError(http.StatusInternalServerError, "internal server error")
 			}
 			if res.Allowed == 0 {
-				l.Warn("rate limit exceeded", slog.String("userID", userID))
-				return echo.NewHTTPError(http.StatusTooManyRequests, "request limit exceeded")
+				l.Warn("limit exceeded", slog.String("userID", userID))
+				return echo.NewHTTPError(http.StatusTooManyRequests, "limit exceeded")
 			}
 
 			return next(c)

@@ -108,7 +108,7 @@ func Test_Auth(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, c, rec := newContext(http.MethodGet, "/test", "")
+			_, c, rec := newContext(http.MethodGet, "/test_auth", "")
 
 			if tt.authHeader != "" {
 				c.Request().Header.Set("Authorization", tt.authHeader)

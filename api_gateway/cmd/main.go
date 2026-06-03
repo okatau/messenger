@@ -15,7 +15,6 @@ import (
 	"api_gateway/internal/components"
 	"api_gateway/internal/handlers"
 	"api_gateway/internal/middleware"
-	rate_limiter "api_gateway/internal/service"
 	"api_gateway/pkg/config"
 	"api_gateway/pkg/service_logger"
 )
@@ -28,10 +27,10 @@ func main() {
 	authMW := middleware.Auth(comps.TokenManager)
 
 	rlIP := func(limitRate int) echo.MiddlewareFunc {
-		return rate_limiter.RateLimitByIP(comps.Limiter, comps.Logger, limitRate)
+		return middleware.RateLimitByIP(comps.Limiter, comps.Logger, limitRate)
 	}
 	rlID := func(limitRate int) echo.MiddlewareFunc {
-		return rate_limiter.RateLimitByUser(comps.Limiter, comps.Logger, limitRate)
+		return middleware.RateLimitByUser(comps.Limiter, comps.Logger, limitRate)
 	}
 
 	router := echo.New()
