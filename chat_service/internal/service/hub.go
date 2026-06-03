@@ -32,6 +32,9 @@ type Hub interface {
 	GetRoomsByUser(ctx context.Context, userID string) ([]*domain.Room, error)
 
 	Shutdown()
+
+	ChangeInviteAvailability(ctx context.Context, userID string, availability bool) error
+	GetInviteAvailability(ctx context.Context, userID string) (bool, error)
 }
 
 type hub struct {
@@ -126,7 +129,6 @@ func (h *hub) Disconnect(userID string) (User, error) {
 	return user, nil
 }
 
-// TODO semantics not invites user but add to chat.
 func (h *hub) InviteUser(ctx context.Context, userID, inviteeID, roomID string) error {
 	l := h.loggerWith(".inviteuser")
 
@@ -136,12 +138,12 @@ func (h *hub) InviteUser(ctx context.Context, userID, inviteeID, roomID string) 
 		return err
 	}
 
-	isFriend, err := h.friendsClient.IsFriend(ctx, userID, inviteeID)
+	inviteAvailable, err := h.userRepo.GetInviteAvailability(ctx, inviteeID)
 	if err != nil {
-		l.Error("failed to check friendship", sl.Err(err))
+		l.Error("failed to check invite availability", sl.Err(err))
 		return err
 	}
-	if !isFriend {
+	if !inviteAvailable {
 		return domain.ErrUserForbidden
 	}
 
@@ -243,6 +245,15 @@ func (h *hub) CreateRoom(ctx context.Context, roomName, userID string) (*domain.
 func (h *hub) CreateDM(ctx context.Context, userID, inviteeID string) (*domain.Room, error) {
 	l := h.loggerWith(".createdm")
 
+	isFriend, err := h.friendsClient.IsFriend(ctx, userID, inviteeID)
+	if err != nil {
+		l.Error("failed to check friendship", sl.Err(err))
+		return nil, err
+	}
+	if !isFriend {
+		return nil, domain.ErrUserForbidden
+	}
+
 	room, err := h.roomRepo.CreateDM(ctx, userID, inviteeID)
 	if err != nil {
 		l.Error("failed to create room", "userID", userID, sl.Err(err))
@@ -306,6 +317,26 @@ func (h *hub) GetRoomsByUser(ctx context.Context, userID string) ([]*domain.Room
 
 	rooms = append(rooms, dms...)
 	return rooms, nil
+}
+
+func (h *hub) ChangeInviteAvailability(ctx context.Context, userID string, availability bool) error {
+	l := h.loggerWith(".changeinviteavailability")
+	err := h.userRepo.ChangeInviteAvailability(ctx, userID, availability)
+	if err != nil {
+		l.Error("failed to change invite availability", sl.Err(err))
+		return err
+	}
+	return nil
+}
+
+func (h *hub) GetInviteAvailability(ctx context.Context, userID string) (bool, error) {
+	l := h.loggerWith(".getinviteavailability")
+	res, err := h.userRepo.GetInviteAvailability(ctx, userID)
+	if err != nil {
+		l.Error("failed to get invite availability", sl.Err(err))
+		return false, err
+	}
+	return res, nil
 }
 
 func (h *hub) isMemberValidation(ctx context.Context, inviterID, roomID string) error {

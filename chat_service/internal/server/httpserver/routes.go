@@ -17,11 +17,13 @@ func registreRoutes(router *echo.Echo, svc service.Hub) {
 	router.GET("", handler.GetRoom(svc), authMW)
 	router.GET("/:roomId/users", handler.GetUsersByRoom(svc), authMW)
 	router.GET("/:roomId/messages", handler.GetRoomHistory(svc), authMW)
+	router.GET("/invite-avil", handler.GetInviteAvailability(svc), authMW)
 
 	router.POST("", handler.CreateRoom(svc), authMW)
 	router.POST("/dm", handler.CreateDM(svc), authMW)
 	router.POST("/:roomId/invite", handler.InviteUser(svc), authMW)
 	router.POST("/:roomId/leave", handler.LeaveRoom(svc), authMW)
+	router.POST("/invite-avil", handler.ChangeInviteAvailability(svc), authMW)
 }
 
 func registerWS(ctx context.Context, router *echo.Echo, svc service.Hub, tm *token_manager.TokenManager, whitelist []string) {

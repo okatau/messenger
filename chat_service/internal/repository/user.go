@@ -10,7 +10,10 @@ import (
 )
 
 type UserRepository interface {
+	ChangeInviteAvailability(ctx context.Context, userID string, availability bool) error
+
 	GetUserByID(ctx context.Context, userID string) (*domain.User, error)
+	GetInviteAvailability(ctx context.Context, userID string) (bool, error)
 }
 
 type userRepo struct {
@@ -34,4 +37,27 @@ func (r *userRepo) GetUserByID(ctx context.Context, userID string) (*domain.User
 		return nil, nil
 	}
 	return &user, err
+}
+
+func (r *userRepo) GetInviteAvailability(ctx context.Context, userID string) (bool, error) {
+	query := `
+		SELECT available 
+		FROM invite_available 
+		WHERE user_id = $1
+	`
+
+	var available bool
+	err := r.pool.QueryRow(ctx, query, userID).Scan(&available)
+	return available, err
+}
+
+func (r *userRepo) ChangeInviteAvailability(ctx context.Context, userID string, availability bool) error {
+	query := `
+		UPDATE invite_available
+		SET available = $1
+		WHERE user_id = $2
+	`
+
+	_, err := r.pool.Exec(ctx, query, availability, userID)
+	return err
 }

@@ -180,45 +180,62 @@ func Test_Hub_Disconnect(t *testing.T) {
 
 func Test_Hub_InviteUser(t *testing.T) {
 	tests := []struct {
-		name      string
-		setup     func(r *mocks.MockRoomRepository, fc *mocks.MockFriendshipClient)
+		name  string
+		setup func(
+			r *mocks.MockRoomRepository,
+			u *mocks.MockUserRepository,
+		)
 		wantError error
 	}{
 		{
 			name: "success invitee offline",
-			setup: func(r *mocks.MockRoomRepository, fc *mocks.MockFriendshipClient) {
+			setup: func(
+				r *mocks.MockRoomRepository,
+				u *mocks.MockUserRepository,
+			) {
 				r.EXPECT().CreateRoom(mock.Anything, mock.Anything, aliceID).Return(&domain.Room{ID: room1_ID}, nil)
 				r.EXPECT().IsMember(mock.Anything, aliceID, room1_ID).Return(true, nil)
+				u.EXPECT().GetInviteAvailability(mock.Anything, bobID).Return(true, nil)
 				r.EXPECT().AddUser(mock.Anything, bobID, room1_ID).Return(nil)
-				fc.EXPECT().IsFriend(mock.Anything, aliceID, bobID).Return(true, nil)
 				r.EXPECT().GetRoomType(mock.Anything, room1_ID).Return("group", nil)
 			},
 		},
 		{
 			name: "is not room member",
-			setup: func(r *mocks.MockRoomRepository, fc *mocks.MockFriendshipClient) {
+			setup: func(
+				r *mocks.MockRoomRepository,
+				u *mocks.MockUserRepository,
+			) {
 				r.EXPECT().CreateRoom(mock.Anything, mock.Anything, aliceID).Return(&domain.Room{ID: room1_ID}, nil)
 				r.EXPECT().IsMember(mock.Anything, aliceID, room1_ID).Return(false, nil)
 			},
 			wantError: domain.ErrUserForbidden,
 		},
 		{
-			name: "not friend",
-			setup: func(r *mocks.MockRoomRepository, fc *mocks.MockFriendshipClient) {
+			name: "invites not available",
+			setup: func(
+				r *mocks.MockRoomRepository,
+				u *mocks.MockUserRepository,
+			) {
 				r.EXPECT().CreateRoom(mock.Anything, mock.Anything, aliceID).Return(&domain.Room{ID: room1_ID}, nil)
 				r.EXPECT().IsMember(mock.Anything, aliceID, room1_ID).Return(true, nil)
 
-				fc.EXPECT().IsFriend(mock.Anything, aliceID, bobID).Return(false, nil)
+				u.EXPECT().GetInviteAvailability(mock.Anything, bobID).Return(false, nil)
 			},
 			wantError: domain.ErrUserForbidden,
 		},
 		{
 			name: "invalid room type",
-			setup: func(r *mocks.MockRoomRepository, fc *mocks.MockFriendshipClient) {
+			setup: func(
+				r *mocks.MockRoomRepository,
+				u *mocks.MockUserRepository,
+			) {
 				r.EXPECT().CreateRoom(mock.Anything, mock.Anything, aliceID).Return(&domain.Room{ID: room1_ID}, nil)
 				r.EXPECT().IsMember(mock.Anything, aliceID, room1_ID).Return(true, nil)
-				fc.EXPECT().IsFriend(mock.Anything, aliceID, bobID).Return(true, nil)
 				r.EXPECT().GetRoomType(mock.Anything, room1_ID).Return("direct", nil)
+				u.EXPECT().GetInviteAvailability(mock.Anything, bobID).Return(true, nil)
+
+				u.EXPECT().GetInviteAvailability(mock.Anything, bobID).Return(false, nil)
 			},
 			wantError: domain.ErrRoomNotFound,
 		},
@@ -232,7 +249,7 @@ func Test_Hub_InviteUser(t *testing.T) {
 			fClientMock := mocks.NewMockFriendshipClient(t)
 
 			h := newHub(t, uRepo, rRepo, mRepo, fClientMock)
-			tt.setup(rRepo, fClientMock)
+			tt.setup(rRepo, uRepo)
 
 			dbRoom, err := h.CreateRoom(t.Context(), room1, aliceID)
 			require.NoError(t, err)
@@ -260,7 +277,7 @@ func Test_Hub_InviteUser(t *testing.T) {
 		rRepo.EXPECT().AddUser(mock.Anything, bobID, room1_ID).Return(nil)
 		rRepo.EXPECT().GetRoomType(mock.Anything, room1_ID).Return("group", nil)
 
-		fClientMock.EXPECT().IsFriend(mock.Anything, aliceID, bobID).Return(true, nil)
+		uRepo.EXPECT().GetInviteAvailability(mock.Anything, bobID).Return(true, nil)
 
 		connectUser(t, h, uRepo, rRepo, bobID, bob, []*domain.Room{})
 
@@ -402,6 +419,8 @@ func Test_Hub_CreateDM(t *testing.T) {
 		mRepo := mocks.NewMockMessageRepository(t)
 		fClientMock := mocks.NewMockFriendshipClient(t)
 
+		fClientMock.EXPECT().IsFriend(mock.Anything, bobID, aliceID).Return(true, nil)
+
 		h := newHub(t, uRepo, rRepo, mRepo, fClientMock)
 		rRepo.EXPECT().CreateDM(mock.Anything, bobID, aliceID).Return(&domain.Room{ID: room1_ID}, nil)
 
@@ -415,6 +434,8 @@ func Test_Hub_CreateDM(t *testing.T) {
 		rRepo := mocks.NewMockRoomRepository(t)
 		mRepo := mocks.NewMockMessageRepository(t)
 		fClientMock := mocks.NewMockFriendshipClient(t)
+
+		fClientMock.EXPECT().IsFriend(mock.Anything, bobID, aliceID).Return(true, nil)
 
 		h := newHub(t, uRepo, rRepo, mRepo, fClientMock)
 		rRepo.EXPECT().CreateDM(mock.Anything, bobID, aliceID).Return((*domain.Room)(nil), errDB)

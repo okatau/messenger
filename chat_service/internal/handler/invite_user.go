@@ -10,9 +10,6 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-// TODO change logic to soft invite, now force adding user to room
-//
-//nolint:revive // -
 func InviteUser(hub service.Hub) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		roomID := c.Param("roomId")
