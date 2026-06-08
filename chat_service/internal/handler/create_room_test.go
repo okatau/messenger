@@ -9,6 +9,7 @@ import (
 	"chat_service/internal/domain"
 	"chat_service/internal/service"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -17,9 +18,9 @@ import (
 
 var (
 	errDB    = errors.New("db down")
-	aliceID  = "aliceid"
-	bobID    = "bobid"
-	roomID   = "roomid"
+	aliceID  = uuid.NewString()
+	bobID    = uuid.NewString()
+	roomID   = uuid.NewString()
 	roomName = "room-1"
 )
 

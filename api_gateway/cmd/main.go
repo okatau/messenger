@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -10,55 +10,20 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/labstack/echo/v5"
-
-	"api_gateway/internal/components"
-	"api_gateway/internal/handlers"
-	"api_gateway/internal/middleware"
-	"api_gateway/pkg/config"
-	"api_gateway/pkg/service_logger"
+	httpserver "api_gateway/internal/server/http"
 )
 
 func main() {
-	cfg := config.Load[components.Config]()
-
-	comps := components.InitComponents(context.Background(), cfg)
-
-	authMW := middleware.Auth(comps.TokenManager)
-
-	rlIP := func(limitRate int) echo.MiddlewareFunc {
-		return middleware.RateLimitByIP(comps.Limiter, comps.Logger, limitRate)
+	srv, err := httpserver.New()
+	if err != nil {
+		log.Fatal(err)
 	}
-	rlID := func(limitRate int) echo.MiddlewareFunc {
-		return middleware.RateLimitByUser(comps.Limiter, comps.Logger, limitRate)
-	}
-
-	router := echo.New()
-	router.Use(service_logger.LoggerMW(comps.Logger))
-
-	rv1 := router.Group("/api/v1")
-
-	auth := rv1.Group("/auth")
-	chat := rv1.Group("/rooms")
-	friends := rv1.Group("/friends")
-
-	handlers.InitAuthEndpoints(auth, cfg.AuthAddr, cfg.RateLimits.Al, rlIP)
-	handlers.InitChatEndpoints(chat, cfg.ChatAddr, cfg.RateLimits.Cl, rlID, authMW)
-	handlers.InitFriendsEndpoints(friends, cfg.FriendsAddr, cfg.RateLimits.Fl, rlID, authMW)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
-	srv := &http.Server{
-		Addr:    fmt.Sprintf(":%d", cfg.ServerConfig.Port),
-		Handler: router,
-		// ReadTimeout:  cfg.ServerConfig.ReadTimeout,
-		// WriteTimeout: cfg.ServerConfig.WriteTimeout,
-	}
-
 	go func() {
-		comps.Logger.Info(fmt.Sprintf("listening api gateway service on %d", cfg.ServerConfig.Port))
-		if err := srv.ListenAndServe(); err != nil {
+		if err := srv.Start(); err != nil && errors.Is(err, http.ErrServerClosed) {
 			log.Printf("api gateway service stopped: %v", err)
 		}
 	}()
@@ -68,7 +33,5 @@ func main() {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
-	if err := srv.Shutdown(shutdownCtx); err != nil {
-		comps.Logger.Error("error shutting down server", service_logger.Err(err))
-	}
+	srv.Stop(shutdownCtx)
 }

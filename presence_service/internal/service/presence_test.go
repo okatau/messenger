@@ -20,7 +20,7 @@ var (
 
 func Test_MarkOnline(t *testing.T) {
 	repo := mocks.NewMockPresenceRepository(t)
-	svc := NewPresenceService(repo, slog.Default())
+	svc := New(repo, slog.Default())
 
 	t.Run("Successfully addede status", func(t *testing.T) {
 		userID := "test-case-1"
@@ -79,7 +79,7 @@ func Test_Heartbeat(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := mocks.NewMockPresenceRepository(t)
-			svc := NewPresenceService(repo, slog.Default())
+			svc := New(repo, slog.Default())
 			tt.setup(repo)
 
 			err := svc.Heartbeat(t.Context(), userID)
@@ -129,7 +129,7 @@ func Test_GetStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := mocks.NewMockPresenceRepository(t)
-			svc := NewPresenceService(repo, slog.Default())
+			svc := New(repo, slog.Default())
 			tt.setup(repo)
 
 			ans, err := svc.GetStatus(t.Context(), userID)
@@ -195,7 +195,7 @@ func Test_GetBulkStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := mocks.NewMockPresenceRepository(t)
-			svc := NewPresenceService(repo, slog.Default())
+			svc := New(repo, slog.Default())
 			rmap := tt.setup(repo)
 			_ = rmap
 			ans, err := svc.GetBulkStatus(t.Context(), []string{userID, userID})

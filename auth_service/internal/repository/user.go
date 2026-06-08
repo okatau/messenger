@@ -12,6 +12,7 @@ import (
 type UserRepository interface {
 	GetUserByID(ctx context.Context, id string) (*domain.User, error)
 	GetUserByEmail(ctx context.Context, email string) (*domain.User, error)
+
 	CreateUser(ctx context.Context, name, email, passwordHash string) (*domain.User, error)
 	DeleteUser(ctx context.Context, id string) (*domain.User, error)
 }
@@ -74,5 +75,8 @@ func (r *userRepo) DeleteUser(ctx context.Context, id string) (*domain.User, err
 
 	var user domain.User
 	err := r.pool.QueryRow(ctx, query, id).Scan(&user.ID, &user.Username, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
 	return &user, err
 }

@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -59,47 +58,36 @@ func getMessageFromPG(t *testing.T, pool *pgxpool.Pool, roomID string) []*domain
 	return messages
 }
 func Test_MessageRepo(t *testing.T) {
-	ss := setup(t)
+	pool := startPostgres(t)
+	redis := startRedis(t)
+	repo := NewMessageRepository(pool, redis)
 
-	alice := createUser(t, ss.pool, "alice")
-	room := createRoom(t, ss.pool, "message_repo", alice)
-
-	redis, cleanupRedis := startRedis(t)
-	defer func() {
-		cleanupRedis()
-	}()
-
-	repo := NewMessageRepository(ss.pool, redis)
+	alice := createUser(t, pool, aliceName)
+	room := createRoom(t, pool, roomName, alice)
 
 	msg := &domain.Message{
 		RoomID:  room,
 		UserID:  alice,
 		Message: "hello",
 	}
-	ctx := context.Background()
 
-	err := repo.WriteMessage(ctx, msg)
+	err := repo.WriteMessage(t.Context(), msg)
 	require.NoError(t, err)
 
-	msgPG := getMessageFromPG(t, ss.pool, room)
+	msgPG := getMessageFromPG(t, pool, room)
 	msgR := getMessageFromRedis(t, redis, room)
 	assert.Equal(t, len(msgPG), len(msgR))
 	assert.Equal(t, msgPG[0].UserID, msgR[0].UserID)
 }
 
 func Test_GetMessageBefore_Redis(t *testing.T) {
-	ss := setup(t)
-
-	rdb, cleanupRedis := startRedis(t)
-	defer func() {
-		cleanupRedis()
-	}()
-
-	repo := NewMessageRepository(ss.pool, rdb)
+	pool := startPostgres(t)
+	redis := startRedis(t)
+	repo := NewMessageRepository(pool, redis)
 
 	roomID := uuid.NewString()
 	before := time.Now()
-	addNMessagesRedis(t, roomID, 50, rdb, before)
+	addNMessagesRedis(t, roomID, 50, redis, before)
 
 	msgs, err := repo.GetMessagesBefore(t.Context(), roomID, time.Now().Add(time.Minute))
 	require.NoError(t, err)
@@ -107,20 +95,15 @@ func Test_GetMessageBefore_Redis(t *testing.T) {
 }
 
 func Test_GetMessageBefore_PG(t *testing.T) {
-	ss := setup(t)
+	pool := startPostgres(t)
+	redis := startRedis(t)
+	repo := NewMessageRepository(pool, redis)
 
-	alice := createUser(t, ss.pool, "alice")
-	room := createRoom(t, ss.pool, "message_repo", alice)
-
-	rdb, cleanupRedis := startRedis(t)
-	defer func() {
-		cleanupRedis()
-	}()
-
-	repo := NewMessageRepository(ss.pool, rdb)
+	alice := createUser(t, pool, aliceName)
+	room := createRoom(t, pool, roomName, alice)
 
 	before := time.Now()
-	addNMessagesPG(t, room, alice, 50, ss.pool, before)
+	addNMessagesPG(t, room, alice, 50, pool, before)
 
 	msgs, err := repo.GetMessagesBefore(t.Context(), room, time.Now().Add(time.Minute))
 	require.NoError(t, err)
@@ -128,19 +111,16 @@ func Test_GetMessageBefore_PG(t *testing.T) {
 }
 
 func Test_GetMessageBefore_PartialCache(t *testing.T) {
-	ss := setup(t)
+	pool := startPostgres(t)
+	redis := startRedis(t)
+	repo := NewMessageRepository(pool, redis)
 
-	alice := createUser(t, ss.pool, "alice")
-	room := createRoom(t, ss.pool, "message_repo", alice)
-
-	rdb, cleanupRedis := startRedis(t)
-	defer cleanupRedis()
-
-	repo := NewMessageRepository(ss.pool, rdb)
+	alice := createUser(t, pool, aliceName)
+	room := createRoom(t, pool, roomName, alice)
 
 	before := time.Now()
-	addNMessagesRedis(t, room, 15, rdb, before)
-	addNMessagesPG(t, room, alice, 35, ss.pool, before.Add(-15*time.Minute))
+	addNMessagesRedis(t, room, 15, redis, before)
+	addNMessagesPG(t, room, alice, 35, pool, before.Add(-15*time.Minute))
 
 	msgs, err := repo.GetMessagesBefore(t.Context(), room, time.Now().Add(time.Minute))
 	require.NoError(t, err)
@@ -148,19 +128,16 @@ func Test_GetMessageBefore_PartialCache(t *testing.T) {
 }
 
 func Test_GetMessageBefore_PartialCache_NoDuplicates(t *testing.T) {
-	ss := setup(t)
+	pool := startPostgres(t)
+	redis := startRedis(t)
+	repo := NewMessageRepository(pool, redis)
 
-	alice := createUser(t, ss.pool, "alice")
-	room := createRoom(t, ss.pool, "message_repo", alice)
-
-	rdb, cleanupRedis := startRedis(t)
-	defer cleanupRedis()
-
-	repo := NewMessageRepository(ss.pool, rdb)
+	alice := createUser(t, pool, aliceName)
+	room := createRoom(t, pool, roomName, alice)
 
 	base := time.Now().Truncate(time.Minute)
-	addNMessagesRedis(t, room, 10, rdb, base)
-	addNMessagesPG(t, room, alice, 50, ss.pool, base)
+	addNMessagesRedis(t, room, 10, redis, base)
+	addNMessagesPG(t, room, alice, 50, pool, base)
 
 	msgs, err := repo.GetMessagesBefore(t.Context(), room, base.Add(time.Minute))
 	require.NoError(t, err)

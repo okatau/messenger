@@ -20,7 +20,7 @@ func SearchFriend(svc service.Friendship) echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusBadRequest, "username query param is required")
 		}
 
-		users, err := svc.SearchFriend(c.Request().Context(), userID, username, cursor)
+		users, err := svc.SearchFriends(c.Request().Context(), userID, username, cursor)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, "internal server error")
 		}

@@ -12,7 +12,7 @@ import (
 	tcredis "github.com/testcontainers/testcontainers-go/modules/redis"
 )
 
-func startRedis(t *testing.T) (*redis.Client, func()) {
+func startRedis(t *testing.T) *redis.Client {
 	t.Helper()
 
 	ctx := context.Background()
@@ -31,15 +31,16 @@ func startRedis(t *testing.T) (*redis.Client, func()) {
 
 	redisClient := redis.NewClient(opt)
 
-	return redisClient, func() {
+	t.Cleanup(func() {
 		redisClient.Close()
 		ctr.Terminate(ctx)
-	}
+	})
+
+	return redisClient
 }
 
 func Test_Add(t *testing.T) {
-	rdb, cleanup := startRedis(t)
-	defer cleanup()
+	rdb := startRedis(t)
 	t.Run("Successfully added status", func(t *testing.T) {
 		repo := NewPresenceRepo(rdb, 10*time.Second)
 
@@ -99,8 +100,7 @@ func Test_Add(t *testing.T) {
 }
 
 func Test_Update(t *testing.T) {
-	rdb, cleanup := startRedis(t)
-	defer cleanup()
+	rdb := startRedis(t)
 
 	t.Run("Successfully updated status", func(t *testing.T) {
 		repo := NewPresenceRepo(rdb, 20*time.Second)

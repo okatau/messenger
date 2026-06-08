@@ -27,21 +27,10 @@ type Components struct {
 }
 
 func InitComponents(ctx context.Context, cfg *Config) *Components {
-	dsn := getPostgresDSN(cfg.Postgres)
-
-	pool, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err = pool.Ping(ctx); err != nil {
-		log.Fatal(err)
-	}
-
 	logger := service_logger.InitLogger(cfg.Env)
 
-	userRepo := repository.NewUserRepository(pool)
-	friendshipRepo := repository.NewFriendshipRepository(pool)
-	svc := service.NewFriendshipService(userRepo, friendshipRepo, logger)
+	pool := initPG(ctx, cfg.Postgres)
+	svc := initSvc(pool, logger)
 
 	return &Components{
 		Svc:      svc,
@@ -52,6 +41,29 @@ func InitComponents(ctx context.Context, cfg *Config) *Components {
 
 func (c *Components) Shutdown() {
 	c.Postgres.Close()
+}
+
+func initSvc(
+	pool *pgxpool.Pool,
+	logger *slog.Logger,
+) service.Friendship {
+	userRepo := repository.NewUserRepository(pool)
+	friendshipRepo := repository.NewFriendshipRepository(pool)
+	return service.NewFriendshipService(userRepo, friendshipRepo, logger)
+}
+
+func initPG(ctx context.Context, cfg config.PostgresConfig) *pgxpool.Pool {
+	dsn := getPostgresDSN(cfg)
+
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err = pool.Ping(ctx); err != nil {
+		log.Fatal(err)
+	}
+
+	return pool
 }
 
 func getPostgresDSN(cfg config.PostgresConfig) string {

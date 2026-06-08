@@ -16,7 +16,6 @@ func GetRoom(hub service.Hub) echo.HandlerFunc {
 		ctx := c.Request().Context()
 		rooms, err := hub.GetRoomsByUser(ctx, userID)
 		if err != nil {
-
 			return echo.NewHTTPError(http.StatusInternalServerError, "internal server error")
 		}
 

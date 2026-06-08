@@ -9,18 +9,17 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	aliceID = "11111111-1111-1111-1111-111111111111"
-	bobID   = "22222222-2222-2222-2222-222222222222"
-)
-
 var (
+	aliceID = uuid.NewString()
+	bobID   = uuid.NewString()
+
 	dbError = errors.New("db down")
 )
 
@@ -68,7 +67,7 @@ func Test_Handler_SendFriendRequest(t *testing.T) {
 			name: "invalid invitee",
 			body: `{"inviteeId":"` + bobID + `"}`,
 			setup: func(svc *mocks.MockFriendship) {
-				svc.EXPECT().SendFriendRequest(mock.Anything, aliceID, bobID).Return(domain.ErrUserInvalidInvitee)
+				svc.EXPECT().SendFriendRequest(mock.Anything, aliceID, bobID).Return(domain.ErrUserNotFound)
 			},
 			wantStatus: http.StatusNotFound,
 		},
@@ -76,7 +75,7 @@ func Test_Handler_SendFriendRequest(t *testing.T) {
 			name: "request already exists",
 			body: `{"inviteeId":"` + bobID + `"}`,
 			setup: func(svc *mocks.MockFriendship) {
-				svc.EXPECT().SendFriendRequest(mock.Anything, aliceID, bobID).Return(domain.ErrFriendReqAlreadyExists)
+				svc.EXPECT().SendFriendRequest(mock.Anything, aliceID, bobID).Return(domain.ErrRequestAlreadyExists)
 			},
 			wantStatus: http.StatusBadRequest,
 		},

@@ -26,7 +26,7 @@ func Test_Handler_CancelFriendRequest(t *testing.T) {
 			setup: func(svc *mocks.MockFriendship) {
 				svc.EXPECT().CancelFriendRequest(mock.Anything, aliceID, bobID).Return(nil)
 			},
-			wantStatus: http.StatusOK,
+			wantStatus: http.StatusNoContent,
 		},
 		{
 			name:       "invalid json body",
@@ -42,7 +42,7 @@ func Test_Handler_CancelFriendRequest(t *testing.T) {
 			name: "request not found",
 			body: `{"inviteeId":"` + bobID + `"}`,
 			setup: func(svc *mocks.MockFriendship) {
-				svc.EXPECT().CancelFriendRequest(mock.Anything, aliceID, bobID).Return(domain.ErrFriendReqNotFound)
+				svc.EXPECT().CancelFriendRequest(mock.Anything, aliceID, bobID).Return(domain.ErrRequestNotFound)
 			},
 			wantStatus: http.StatusNotFound,
 		},

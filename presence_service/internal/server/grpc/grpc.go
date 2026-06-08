@@ -1,4 +1,4 @@
-package server
+package grpcserver
 
 import (
 	"context"
@@ -13,18 +13,18 @@ import (
 	pb "presence_service/pkg/pb"
 )
 
-type PresenceServer struct {
+type Server struct {
 	pb.UnimplementedPresenceServer
 	svc service.Presence
 }
 
-func NewPresenceServer(svc service.Presence) *PresenceServer {
-	return &PresenceServer{
+func New(svc service.Presence) *Server {
+	return &Server{
 		svc: svc,
 	}
 }
 
-func (srv *PresenceServer) MarkOnline(ctx context.Context, req *pb.MarkOnlineReq) (*pb.Status, error) {
+func (srv *Server) MarkOnline(ctx context.Context, req *pb.MarkOnlineReq) (*pb.Status, error) {
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user id")
@@ -37,7 +37,7 @@ func (srv *PresenceServer) MarkOnline(ctx context.Context, req *pb.MarkOnlineReq
 	return &pb.Status{Status: pb.Code_OK}, nil
 }
 
-func (srv *PresenceServer) Heartbeat(ctx context.Context, req *pb.HeartbeatReq) (*pb.Status, error) {
+func (srv *Server) Heartbeat(ctx context.Context, req *pb.HeartbeatReq) (*pb.Status, error) {
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user id")
@@ -51,7 +51,7 @@ func (srv *PresenceServer) Heartbeat(ctx context.Context, req *pb.HeartbeatReq) 
 	return &pb.Status{Status: pb.Code_OK}, nil
 }
 
-func (srv *PresenceServer) GetStatus(ctx context.Context, req *pb.GetStatusReq) (*pb.GetStatusRes, error) {
+func (srv *Server) GetStatus(ctx context.Context, req *pb.GetStatusReq) (*pb.GetStatusRes, error) {
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user id")
@@ -80,7 +80,7 @@ func (srv *PresenceServer) GetStatus(ctx context.Context, req *pb.GetStatusReq) 
 	}, nil
 }
 
-func (srv *PresenceServer) GetBulkStatus(ctx context.Context, req *pb.GetBulkStatusReq) (*pb.GetBulkStatusRes, error) {
+func (srv *Server) GetBulkStatus(ctx context.Context, req *pb.GetBulkStatusReq) (*pb.GetBulkStatusRes, error) {
 	userIDs := req.UserIds
 	userInfo := make([]*pb.UserInfo, len(userIDs))
 	for i := range userIDs {

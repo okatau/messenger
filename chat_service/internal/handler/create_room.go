@@ -16,11 +16,10 @@ func CreateRoom(hub service.Hub) echo.HandlerFunc {
 		var req struct {
 			Name string `json:"name"`
 		}
-
 		if err := c.Bind(&req); err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid req body")
 		}
-
+		// TODO validate room name
 		if req.Name == "" {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid room name")
 		}

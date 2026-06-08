@@ -2,53 +2,19 @@ package handler
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
-	"net/http/httptest"
-	"strings"
 	"testing"
-	"time"
 
 	"auth_service/internal/domain"
 	"auth_service/internal/handler/mocks"
 
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-var dbError = errors.New("db error")
-
-func newContext(method, target, body string) (*echo.Echo, *echo.Context, *httptest.ResponseRecorder) {
-	e := echo.New()
-	var reqBody *strings.Reader
-	if body != "" {
-		reqBody = strings.NewReader(body)
-	} else {
-		reqBody = strings.NewReader("")
-	}
-	req := httptest.NewRequest(method, target, reqBody)
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-
-	return e, c, rec
-}
-
 func Test_Register(t *testing.T) {
-	email := "email@mail.com"
-	name := "username"
-	password := "password"
-
-	user := domain.User{
-		ID:        uuid.NewString(),
-		Username:  name,
-		Email:     email,
-		CreatedAt: time.Now(),
-	}
-
 	getBody := func(username, email, password string) string {
 		body, _ := json.Marshal(
 			struct {
@@ -73,9 +39,9 @@ func Test_Register(t *testing.T) {
 	}{
 		{
 			name: "success",
-			body: getBody(name, email, password),
+			body: getBody(aliceName, aliceMail, alicePW),
 			setup: func(s *mocks.MockAuth) {
-				s.EXPECT().Register(mock.Anything, name, email, password).Return(&user, nil)
+				s.EXPECT().Register(mock.Anything, aliceName, aliceMail, alicePW).Return(&domain.User{ID: "id"}, nil)
 			},
 			wantStatus: http.StatusCreated,
 			wantErr:    false,
@@ -89,30 +55,39 @@ func Test_Register(t *testing.T) {
 		},
 		{
 			name:       "invalid email",
-			body:       getBody(name, "", password),
+			body:       getBody(aliceName, "", alicePW),
 			setup:      func(s *mocks.MockAuth) {},
 			wantStatus: http.StatusBadRequest,
 			wantErr:    true,
 		},
 		{
 			name:       "invalid password",
-			body:       getBody(name, email, ""),
+			body:       getBody(aliceName, aliceMail, ""),
 			setup:      func(s *mocks.MockAuth) {},
 			wantStatus: http.StatusBadRequest,
 			wantErr:    true,
 		},
 		{
 			name:       "invalid username",
-			body:       getBody("", email, password),
+			body:       getBody("a", aliceMail, alicePW),
 			setup:      func(s *mocks.MockAuth) {},
 			wantStatus: http.StatusBadRequest,
 			wantErr:    true,
 		},
 		{
-			name: "internal server error",
-			body: getBody(name, email, password),
+			name: "user exists",
+			body: getBody(aliceMail, aliceMail, alicePW),
 			setup: func(s *mocks.MockAuth) {
-				s.EXPECT().Register(mock.Anything, name, email, password).Return((*domain.User)(nil), dbError)
+				s.EXPECT().Register(mock.Anything, aliceMail, aliceMail, alicePW).Return((*domain.User)(nil), domain.ErrUserExists)
+			},
+			wantStatus: http.StatusConflict,
+			wantErr:    true,
+		},
+		{
+			name: "internal server error",
+			body: getBody(aliceMail, aliceMail, alicePW),
+			setup: func(s *mocks.MockAuth) {
+				s.EXPECT().Register(mock.Anything, aliceMail, aliceMail, alicePW).Return((*domain.User)(nil), dbError)
 			},
 			wantStatus: http.StatusInternalServerError,
 			wantErr:    true,
@@ -137,7 +112,7 @@ func Test_Register(t *testing.T) {
 				assert.Equal(t, tt.wantStatus, rec.Code)
 				var resp map[string]any
 				require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
-				assert.Contains(t, resp, "user_id")
+				assert.Contains(t, resp, "userId")
 			}
 		})
 	}

@@ -2,24 +2,46 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"auth_service/internal/domain"
 	"auth_service/internal/handler/mocks"
 
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-func Test_Login(t *testing.T) {
-	email := "email@mail.com"
-	password := "password"
+var (
+	dbError = errors.New("db error")
 
-	AuthSession := domain.AuthSession{UserID: uuid.NewString(), Username: "user", RefreshToken: "refresh_token", AccessToken: "access_token"}
+	aliceName = "alice"
+	aliceMail = "alice@mail.com"
+	alicePW   = "alice"
+)
+
+func newContext(method, target, body string) (*echo.Echo, *echo.Context, *httptest.ResponseRecorder) {
+	e := echo.New()
+	var reqBody *strings.Reader
+	if body != "" {
+		reqBody = strings.NewReader(body)
+	} else {
+		reqBody = strings.NewReader("")
+	}
+	req := httptest.NewRequest(method, target, reqBody)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	return e, c, rec
+}
+
+func Test_Login(t *testing.T) {
 	getBody := func(email, password string) string {
 		body, _ := json.Marshal(
 			struct {
@@ -42,9 +64,9 @@ func Test_Login(t *testing.T) {
 	}{
 		{
 			name: "success",
-			body: getBody(email, password),
+			body: getBody(aliceMail, alicePW),
 			setup: func(s *mocks.MockAuth) {
-				s.EXPECT().Login(mock.Anything, email, password).Return(&AuthSession, nil)
+				s.EXPECT().Login(mock.Anything, aliceMail, alicePW).Return(&domain.AuthSession{AccessToken: "access_token"}, nil)
 			},
 			wantStatus: http.StatusOK,
 		},
@@ -57,23 +79,23 @@ func Test_Login(t *testing.T) {
 		},
 		{
 			name:       "invalid email",
-			body:       getBody("", password),
+			body:       getBody("", alicePW),
 			setup:      func(_ *mocks.MockAuth) {},
 			wantStatus: http.StatusBadRequest,
 			wantError:  true,
 		},
 		{
 			name:       "invalid password",
-			body:       getBody(email, ""),
+			body:       getBody(aliceMail, ""),
 			setup:      func(_ *mocks.MockAuth) {},
 			wantStatus: http.StatusBadRequest,
 			wantError:  true,
 		},
 		{
 			name: "internal server error",
-			body: getBody(email, password),
+			body: getBody(aliceMail, alicePW),
 			setup: func(s *mocks.MockAuth) {
-				s.EXPECT().Login(mock.Anything, email, password).Return((*domain.AuthSession)(nil), dbError)
+				s.EXPECT().Login(mock.Anything, aliceMail, alicePW).Return((*domain.AuthSession)(nil), dbError)
 			},
 			wantStatus: http.StatusInternalServerError,
 			wantError:  true,
@@ -98,7 +120,7 @@ func Test_Login(t *testing.T) {
 				assert.Equal(t, tt.wantStatus, rec.Code)
 				var resp map[string]any
 				require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
-				assert.Contains(t, resp, "access_token")
+				assert.Contains(t, resp, "accessToken")
 			}
 		})
 	}

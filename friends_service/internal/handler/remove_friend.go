@@ -24,7 +24,7 @@ func RemoveFriend(svc service.Friendship) echo.HandlerFunc {
 		err := svc.RemoveFriend(c.Request().Context(), userID, friendID)
 		if err != nil {
 			switch {
-			case errors.Is(err, domain.ErrFriendNotFound):
+			case errors.Is(err, domain.ErrUserNotFound):
 				return echo.NewHTTPError(http.StatusNotFound, "friend not found")
 			default:
 				return echo.NewHTTPError(http.StatusInternalServerError, "internal server error")

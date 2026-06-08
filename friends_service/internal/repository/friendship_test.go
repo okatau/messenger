@@ -14,7 +14,7 @@ import (
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 )
 
-func startPostgres(t *testing.T) (*pgxpool.Pool, func()) {
+func startPostgres(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 
 	ctx := context.Background()
@@ -39,10 +39,12 @@ func startPostgres(t *testing.T) (*pgxpool.Pool, func()) {
 	runMigrations(t, pool)
 	require.NoError(t, err)
 
-	return pool, func() {
+	t.Cleanup(func() {
 		pool.Close()
 		ctr.Terminate(ctx)
-	}
+	})
+
+	return pool
 }
 
 func runMigrations(t *testing.T, pool *pgxpool.Pool) {
@@ -87,11 +89,7 @@ func createUser(t *testing.T, ctx context.Context, pool *pgxpool.Pool, name stri
 func setup(t *testing.T) (repo FriendshipRepository, aliceID, bobID string) {
 	t.Helper()
 
-	pool, cleanup := startPostgres(t)
-	t.Cleanup(func() {
-		cleanup()
-	})
-
+	pool := startPostgres(t)
 	repo = NewFriendshipRepository(pool)
 
 	aliceID = createUser(t, t.Context(), pool, "alice")
@@ -113,7 +111,7 @@ func Test_AddFriend_Duplicate(t *testing.T) {
 	require.NoError(t, err)
 
 	err = repo.AddFriend(t.Context(), aliceID, bobID)
-	assert.ErrorIs(t, err, domain.ErrFriendReqAlreadyExists)
+	assert.ErrorIs(t, err, domain.ErrRequestAlreadyExists)
 }
 
 func Test_AcceptFriend(t *testing.T) {

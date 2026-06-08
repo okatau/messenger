@@ -26,7 +26,7 @@ func Test_Handler_SearchFriend(t *testing.T) {
 			name:  "success",
 			query: "?username=bob",
 			setup: func(svc *mocks.MockFriendship) {
-				svc.EXPECT().SearchFriend(mock.Anything, aliceID, "bob", "").Return(friends, nil)
+				svc.EXPECT().SearchFriends(mock.Anything, aliceID, "bob", "").Return(friends, nil)
 			},
 			wantStatus: http.StatusOK,
 		},
@@ -34,7 +34,7 @@ func Test_Handler_SearchFriend(t *testing.T) {
 			name:  "with cursor",
 			query: "?username=bob&cursor=abc",
 			setup: func(svc *mocks.MockFriendship) {
-				svc.EXPECT().SearchFriend(mock.Anything, aliceID, "bob", "abc").Return(friends, nil)
+				svc.EXPECT().SearchFriends(mock.Anything, aliceID, "bob", "abc").Return(friends, nil)
 			},
 			wantStatus: http.StatusOK,
 		},
@@ -47,7 +47,7 @@ func Test_Handler_SearchFriend(t *testing.T) {
 			name:  "internal error",
 			query: "?username=bob",
 			setup: func(svc *mocks.MockFriendship) {
-				svc.EXPECT().SearchFriend(mock.Anything, aliceID, "bob", "").Return([]*domain.User{}, dbError)
+				svc.EXPECT().SearchFriends(mock.Anything, aliceID, "bob", "").Return([]*domain.User{}, dbError)
 			},
 			wantStatus: http.StatusInternalServerError,
 		},

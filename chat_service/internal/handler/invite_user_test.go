@@ -18,9 +18,9 @@ func Test_InviteUser(t *testing.T) {
 	getBody := func(userID string) string {
 		body, _ := json.Marshal(
 			struct {
-				UserID string `json:"userId"`
+				InviteeID string `json:"inviteeId"`
 			}{
-				UserID: userID,
+				InviteeID: userID,
 			},
 		)
 		return string(body)
@@ -41,7 +41,7 @@ func Test_InviteUser(t *testing.T) {
 
 				c.SetPathValues(echo.PathValues{{Name: "roomId", Value: roomID}})
 			},
-			wantStatus: http.StatusNoContent,
+			wantStatus: http.StatusOK,
 		},
 		{
 			name: "invalid req body",

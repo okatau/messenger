@@ -191,7 +191,7 @@ func (h *hub) LeaveRoom(ctx context.Context, userID, roomID string) error {
 
 	isEmpty, err := h.roomRepo.IsEmpty(ctx, roomID)
 	if err != nil {
-		l.Error("failed to check emptyness", sl.Err(err))
+		l.Error("failed to check room members", sl.Err(err))
 		return err
 	}
 	if isEmpty {

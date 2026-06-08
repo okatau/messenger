@@ -13,14 +13,23 @@ import (
 	"auth_service/internal/service/mocks"
 	"auth_service/pkg/token_manager"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 )
 
-var refreshTokenTTL = 30 * 24 * time.Hour
-var accesttTokenTTL = 15 * time.Minute
+var (
+	refreshTokenTTL = 30 * 24 * time.Hour
+	accesttTokenTTL = 15 * time.Minute
+
+	aliceName  = "alice"
+	aliceID    = uuid.NewString()
+	aliceMail  = "alice@mail.com"
+	alicePW    = "alice"
+	alicePH, _ = bcrypt.GenerateFromPassword([]byte(alicePW), bcrypt.DefaultCost)
+)
 
 func setupTokenManager(t *testing.T) *token_manager.TokenManager {
 	t.Helper()
@@ -45,7 +54,7 @@ func setupAuthSvc(t *testing.T, uMock *mocks.MockUserRepository, sMock *mocks.Mo
 	t.Helper()
 	manager := setupTokenManager(t)
 
-	svc := NewAuthService(
+	svc := New(
 		uMock,
 		sMock,
 		manager,
@@ -58,9 +67,9 @@ func setupAuthSvc(t *testing.T, uMock *mocks.MockUserRepository, sMock *mocks.Mo
 
 func Test_Register(t *testing.T) {
 	user := domain.User{
-		Username:     "alice",
-		Email:        "alice@mail.com",
-		PasswordHash: "alice",
+		Username:     aliceName,
+		Email:        aliceMail,
+		PasswordHash: string(alicePH),
 	}
 
 	tests := []struct {
@@ -72,17 +81,17 @@ func Test_Register(t *testing.T) {
 		{
 			name: "success",
 			setup: func(ur *mocks.MockUserRepository) {
-				ur.EXPECT().GetUserByEmail(mock.Anything, "alice@mail.com").Return((*domain.User)(nil), nil)
-				ur.EXPECT().CreateUser(mock.Anything, "alice", "alice@mail.com", mock.Anything).Return(&user, nil)
+				ur.EXPECT().GetUserByEmail(mock.Anything, aliceMail).Return((*domain.User)(nil), nil)
+				ur.EXPECT().CreateUser(mock.Anything, aliceName, aliceMail, mock.Anything).Return(&user, nil)
 			},
-			wantName: "alice",
+			wantName: aliceName,
 		},
 		{
-			name: "user exists",
+			name: "user already exists",
 			setup: func(ur *mocks.MockUserRepository) {
-				ur.EXPECT().GetUserByEmail(mock.Anything, "alice@mail.com").Return(&domain.User{}, nil)
+				ur.EXPECT().GetUserByEmail(mock.Anything, aliceMail).Return(&domain.User{}, nil)
 			},
-			wantName: "alice",
+			wantName: aliceName,
 			wantErr:  domain.ErrUserExists,
 		},
 	}
@@ -95,7 +104,7 @@ func Test_Register(t *testing.T) {
 
 			svc := setupAuthSvc(t, uMock, sMock)
 
-			user, err := svc.Register(t.Context(), "alice", "alice@mail.com", "alice")
+			user, err := svc.Register(t.Context(), aliceName, aliceMail, aliceName)
 
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
@@ -109,11 +118,6 @@ func Test_Register(t *testing.T) {
 }
 
 func Test_Login(t *testing.T) {
-	alice := "alice"
-	aliceEmail := "alice@mail.com"
-	alicePW := "alice"
-	alicePWHash, err := bcrypt.GenerateFromPassword([]byte(alicePW), bcrypt.DefaultCost)
-	require.NoError(t, err)
 	invalidPWHash, err := bcrypt.GenerateFromPassword([]byte("invalid pw hash"), bcrypt.DefaultCost)
 	require.NoError(t, err)
 
@@ -126,29 +130,29 @@ func Test_Login(t *testing.T) {
 	}{
 		{
 			name:     "success",
-			email:    aliceEmail,
+			email:    aliceMail,
 			password: alicePW,
 			setup: func(ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
-				ur.EXPECT().GetUserByEmail(mock.Anything, aliceEmail).Return(&domain.User{ID: alice, Username: alice, PasswordHash: string(alicePWHash)}, nil)
-				sr.EXPECT().CreateSession(mock.Anything, alice, alice, mock.Anything, mock.Anything).Return(nil)
-				sr.EXPECT().DeleteSessionsByUserID(mock.Anything, alice).Return([]*domain.Session{}, nil)
+				ur.EXPECT().GetUserByEmail(mock.Anything, aliceMail).Return(&domain.User{ID: aliceID, Username: aliceName, PasswordHash: string(alicePH)}, nil)
+				sr.EXPECT().CreateSession(mock.Anything, aliceID, aliceName, mock.Anything, mock.Anything).Return(nil)
+				sr.EXPECT().DeleteSessionsByUserID(mock.Anything, aliceID).Return([]*domain.Session{}, nil)
 			},
 		},
 		{
 			name:     "user not found",
-			email:    aliceEmail,
+			email:    aliceMail,
 			password: alicePW,
 			setup: func(ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
-				ur.EXPECT().GetUserByEmail(mock.Anything, aliceEmail).Return((*domain.User)(nil), nil)
+				ur.EXPECT().GetUserByEmail(mock.Anything, aliceMail).Return((*domain.User)(nil), nil)
 			},
 			wantErr: domain.ErrUserNotFound,
 		},
 		{
 			name:     "user forbidden",
-			email:    aliceEmail,
+			email:    aliceMail,
 			password: alicePW,
 			setup: func(ur *mocks.MockUserRepository, sr *mocks.MockSessionRepository) {
-				ur.EXPECT().GetUserByEmail(mock.Anything, aliceEmail).Return(&domain.User{ID: alice, Username: alice, PasswordHash: string(invalidPWHash)}, nil)
+				ur.EXPECT().GetUserByEmail(mock.Anything, aliceMail).Return(&domain.User{ID: aliceID, Username: aliceName, PasswordHash: string(invalidPWHash)}, nil)
 			},
 			wantErr: domain.ErrUserForbidden,
 		},
@@ -177,8 +181,8 @@ func Test_Login(t *testing.T) {
 func Test_Refresh(t *testing.T) {
 	session := &domain.Session{
 		ID:           "session-1",
-		UserID:       "alice",
-		Username:     "alice",
+		UserID:       aliceID,
+		Username:     aliceName,
 		RefreshToken: "refresh_token",
 		ExpiresAt:    time.Now().Add(1 * time.Hour),
 	}
@@ -239,8 +243,8 @@ func Test_Refresh(t *testing.T) {
 func Test_Logout(t *testing.T) {
 	session := &domain.Session{
 		ID:           "session-1",
-		UserID:       "alice",
-		Username:     "alice",
+		UserID:       aliceID,
+		Username:     aliceName,
 		RefreshToken: "refresh_token",
 		ExpiresAt:    time.Now().Add(1 * time.Hour),
 	}

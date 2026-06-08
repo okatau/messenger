@@ -7,36 +7,42 @@ import (
 	"chat_service/internal/domain"
 	"chat_service/internal/service"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 )
 
 func InviteUser(hub service.Hub) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		roomID := c.Param("roomId")
 		//nolint:errcheck // userID sets in chat_service/internal/middleware/extract_userid.go
-		inviterID := c.Get("userID").(string)
+		userID := c.Get("userID").(string)
+
+		roomID := c.Param("roomId")
+		rID, err := uuid.Parse(roomID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid room id")
+		}
+
 		var req struct {
-			UserID string `json:"userId"`
+			Invitee string `json:"inviteeId"`
+		}
+		if err = c.Bind(&req); err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid req body")
 		}
 
-		if err := c.Bind(&req); err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, "invalud req body")
+		if _, err = uuid.Parse(req.Invitee); err != nil || req.Invitee == userID {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid invitee id")
 		}
 
-		if roomID == "" || req.UserID == "" {
-			return echo.NewHTTPError(http.StatusBadRequest, "invalid room id or user id")
-		}
-
-		err := hub.InviteUser(c.Request().Context(), inviterID, req.UserID, roomID)
+		err = hub.InviteUser(c.Request().Context(), userID, req.Invitee, rID.String())
 		if err != nil {
 			switch {
 			case errors.Is(err, domain.ErrUserForbidden):
-				return echo.NewHTTPError(http.StatusForbidden, "forbidden")
+				return echo.NewHTTPError(http.StatusForbidden, "user forbidden")
 			default:
 				return echo.NewHTTPError(http.StatusInternalServerError, "internal server error")
 			}
 		}
 
-		return c.NoContent(http.StatusNoContent)
+		return c.NoContent(http.StatusOK)
 	}
 }

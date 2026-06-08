@@ -8,8 +8,10 @@ import (
 
 	"presence_service/internal/domain"
 	"presence_service/internal/repository"
-	"presence_service/pkg/service_logger"
+	sl "presence_service/pkg/service_logger"
 )
+
+const svcName = "service.presence"
 
 type Presence interface {
 	MarkOnline(ctx context.Context, userID string, metadata map[string]string) error
@@ -18,21 +20,20 @@ type Presence interface {
 	GetBulkStatus(ctx context.Context, userIDs []string) ([]*domain.UserStatus, error)
 }
 
-type presenceService struct {
+type presence struct {
 	pRepo  repository.PresenceRepository
 	logger *slog.Logger
 }
 
-func NewPresenceService(pRepo repository.PresenceRepository, logger *slog.Logger) Presence {
-	return &presenceService{
+func New(pRepo repository.PresenceRepository, logger *slog.Logger) Presence {
+	return &presence{
 		pRepo:  pRepo,
 		logger: logger,
 	}
 }
 
-func (svc *presenceService) MarkOnline(ctx context.Context, userID string, metadata map[string]string) error {
-	const op = "presence.markonline"
-	logger := svc.logger.With(slog.String("op", op))
+func (svc *presence) MarkOnline(ctx context.Context, userID string, metadata map[string]string) error {
+	l := svc.loggerWith(".markonline")
 
 	key := presenceKey(userID)
 
@@ -42,22 +43,21 @@ func (svc *presenceService) MarkOnline(ctx context.Context, userID string, metad
 
 	err := svc.pRepo.Add(ctx, key, fields)
 	if err != nil {
-		logger.Error("failed to mark as online", service_logger.Err(err))
+		l.Error("failed to mark as online", sl.Err(err))
 		return err
 	}
 
 	return nil
 }
 
-func (svc *presenceService) Heartbeat(ctx context.Context, userID string) error {
-	const op = "presence.heartbeat"
-	logger := svc.logger.With(slog.String("op", op))
+func (svc *presence) Heartbeat(ctx context.Context, userID string) error {
+	l := svc.loggerWith(".heartbeat")
 
 	key := presenceKey(userID)
 
 	ok, err := svc.pRepo.Update(ctx, key)
 	if err != nil {
-		logger.Error("failed to update heartbeat", service_logger.Err(err))
+		l.Error("failed to update heartbeat", sl.Err(err))
 		return err
 	}
 	if !ok {
@@ -66,15 +66,14 @@ func (svc *presenceService) Heartbeat(ctx context.Context, userID string) error 
 	return nil
 }
 
-func (svc *presenceService) GetStatus(ctx context.Context, userID string) (map[string]string, error) {
-	const op = "presence.getstatus"
-	logger := svc.logger.With(slog.String("op", op))
+func (svc *presence) GetStatus(ctx context.Context, userID string) (map[string]string, error) {
+	l := svc.loggerWith(".getstatus")
 
 	key := presenceKey(userID)
 
 	metadata, err := svc.pRepo.Get(ctx, key)
 	if err != nil {
-		logger.Error("failed to get user status", service_logger.Err(err))
+		l.Error("failed to get user status", sl.Err(err))
 		return nil, err
 	}
 	if len(metadata) == 0 {
@@ -84,9 +83,8 @@ func (svc *presenceService) GetStatus(ctx context.Context, userID string) (map[s
 	return metadata, nil
 }
 
-func (svc *presenceService) GetBulkStatus(ctx context.Context, userIDs []string) ([]*domain.UserStatus, error) {
-	const op = "presence.getstatus"
-	logger := svc.logger.With(slog.String("op", op))
+func (svc *presence) GetBulkStatus(ctx context.Context, userIDs []string) ([]*domain.UserStatus, error) {
+	l := svc.loggerWith(".getbulkstatus")
 
 	keys := make([]string, len(userIDs))
 	for i := range userIDs {
@@ -95,7 +93,7 @@ func (svc *presenceService) GetBulkStatus(ctx context.Context, userIDs []string)
 
 	res, err := svc.pRepo.GetBulk(ctx, keys)
 	if err != nil {
-		logger.Error("failed to get status bulk", service_logger.Err(err))
+		l.Error("failed to get status bulk", sl.Err(err))
 		return nil, err
 	}
 
@@ -118,6 +116,10 @@ func (svc *presenceService) GetBulkStatus(ctx context.Context, userIDs []string)
 	}
 
 	return statuses, nil
+}
+
+func (svc *presence) loggerWith(fnName string) *slog.Logger {
+	return svc.logger.With("op", svcName+fnName)
 }
 
 func presenceKey(userID string) string {

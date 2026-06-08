@@ -15,7 +15,6 @@ import (
 )
 
 func Test_RefreshToken(t *testing.T) {
-	userInfo := domain.AuthSession{AccessToken: "access_token"}
 	tests := []struct {
 		name       string
 		body       string
@@ -25,9 +24,9 @@ func Test_RefreshToken(t *testing.T) {
 	}{
 		{
 			name: "success",
-			body: `{"refresh_token": "refresh_token"}`,
+			body: `{"refreshToken": "refreshToken"}`,
 			setup: func(s *mocks.MockAuth) {
-				s.EXPECT().Refresh(mock.Anything, "refresh_token").Return(&userInfo, nil)
+				s.EXPECT().Refresh(mock.Anything, "refreshToken").Return(&domain.AuthSession{AccessToken: "access_token"}, nil)
 			},
 			wantStatus: http.StatusOK,
 		},
@@ -40,16 +39,34 @@ func Test_RefreshToken(t *testing.T) {
 		},
 		{
 			name:       "invalid refresh token",
-			body:       `{"refresh_token": ""}`,
+			body:       `{"refreshToken": ""}`,
 			setup:      func(s *mocks.MockAuth) {},
 			wantStatus: http.StatusBadRequest,
 			wantErr:    true,
 		},
 		{
-			name: "internal server error",
-			body: `{"refresh_token": "refresh_token"}`,
+			name: "token expired",
+			body: `{"refreshToken": "refreshToken"}`,
 			setup: func(s *mocks.MockAuth) {
-				s.EXPECT().Refresh(mock.Anything, "refresh_token").Return((*domain.AuthSession)(nil), dbError)
+				s.EXPECT().Refresh(mock.Anything, "refreshToken").Return(nil, domain.ErrTokenExpired)
+			},
+			wantStatus: http.StatusUnauthorized,
+			wantErr:    true,
+		},
+		{
+			name: "token not found",
+			body: `{"refreshToken": "refreshToken"}`,
+			setup: func(s *mocks.MockAuth) {
+				s.EXPECT().Refresh(mock.Anything, "refreshToken").Return(nil, domain.ErrTokenNotFound)
+			},
+			wantStatus: http.StatusUnauthorized,
+			wantErr:    true,
+		},
+		{
+			name: "internal server error",
+			body: `{"refreshToken": "refreshToken"}`,
+			setup: func(s *mocks.MockAuth) {
+				s.EXPECT().Refresh(mock.Anything, "refreshToken").Return((*domain.AuthSession)(nil), dbError)
 			},
 			wantStatus: http.StatusInternalServerError,
 			wantErr:    true,
@@ -74,7 +91,7 @@ func Test_RefreshToken(t *testing.T) {
 				assert.Equal(t, tt.wantStatus, rec.Code)
 				var resp map[string]any
 				require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
-				assert.Contains(t, resp, "access_token")
+				assert.Contains(t, resp, "accessToken")
 			}
 		})
 	}

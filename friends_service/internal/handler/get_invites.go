@@ -15,7 +15,7 @@ func GetInvites(svc service.Friendship) echo.HandlerFunc {
 
 		invites, err := svc.GetInvites(c.Request().Context(), userID)
 		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "error reading invites")
+			return echo.NewHTTPError(http.StatusInternalServerError, "internal server error")
 		}
 
 		return c.JSON(http.StatusOK, invites)

@@ -13,7 +13,7 @@ import (
 func Logout(auth service.Auth) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		var req struct {
-			RefreshToken string `json:"refresh_token"`
+			RefreshToken string `json:"refreshToken"`
 		}
 
 		if err := c.Bind(&req); err != nil {
@@ -28,9 +28,9 @@ func Logout(auth service.Auth) echo.HandlerFunc {
 		if err != nil {
 			switch {
 			case errors.Is(err, domain.ErrTokenNotFound):
-				return echo.NewHTTPError(http.StatusNotFound, err.Error())
+				return echo.NewHTTPError(http.StatusUnauthorized, "token not found")
 			default:
-				return echo.NewHTTPError(http.StatusInternalServerError, "server internal error")
+				return echo.NewHTTPError(http.StatusInternalServerError, "internal server error")
 			}
 		}
 

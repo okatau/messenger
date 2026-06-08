@@ -77,7 +77,7 @@ func (r *friendshipRepo) AddFriend(ctx context.Context, inviterID, inviteeID str
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgUniqueViolation { // unique_violation
-			return domain.ErrFriendReqAlreadyExists
+			return domain.ErrRequestAlreadyExists
 		}
 		return err
 	}

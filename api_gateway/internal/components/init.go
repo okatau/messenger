@@ -3,6 +3,7 @@ package components
 import (
 	"context"
 	"encoding/base64"
+	"io"
 	"log"
 	"log/slog"
 
@@ -52,37 +53,44 @@ type Components struct {
 	Limiter      *redis_rate.Limiter
 	TokenManager *token_manager.TokenManager
 	Logger       *slog.Logger
+	RedisCloser  io.Closer
 }
 
 func InitComponents(ctx context.Context, cfg *Config) *Components {
-	rdb := redis.NewUniversalClient(&redis.UniversalOptions{
-		Addrs:    cfg.Redis.Addrs,
-		Password: cfg.Redis.Password,
-	})
-	if err := rdb.Ping(ctx).Err(); err != nil {
-		log.Fatalf("redis ping failed: %v", err)
-	}
-	limiter := redis_rate.NewLimiter(rdb)
-
 	logger := service_logger.InitLogger(cfg.Env)
 
-	publicPemBytes, err := base64.StdEncoding.DecodeString(cfg.Auth.PublicKeyPEMBase64)
-	if err != nil {
-		log.Fatal("error decoding public pem")
-	}
-	privatePemBytes, err := base64.StdEncoding.DecodeString(cfg.Auth.PrivateKeyPEMBase64)
-	if err != nil {
-		log.Fatal("error decoding private pem")
-	}
-
-	manager, err := token_manager.NewTokenManager(publicPemBytes, privatePemBytes, cfg.Auth.AccessTokenTTL, logger)
-	if err != nil {
-		log.Fatal(err)
-	}
+	limiter, closer := initLimiter(ctx, cfg.Redis)
+	manager := initTokenManager(cfg.Auth, logger)
 
 	return &Components{
 		Limiter:      limiter,
 		TokenManager: manager,
 		Logger:       logger,
+		RedisCloser:  closer,
 	}
+}
+
+func initTokenManager(cfg config.AuthConfig, logger *slog.Logger) *token_manager.TokenManager {
+	publicPemBytes, err := base64.StdEncoding.DecodeString(cfg.PublicKeyPEMBase64)
+	if err != nil {
+		log.Fatal("invalid public pem")
+	}
+
+	manager, err := token_manager.NewTokenManager(publicPemBytes, []byte{}, cfg.AccessTokenTTL, logger)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return manager
+}
+
+func initLimiter(ctx context.Context, cfg config.RedisConfig) (*redis_rate.Limiter, io.Closer) {
+	rdb := redis.NewUniversalClient(&redis.UniversalOptions{
+		Addrs:    cfg.Addrs,
+		Password: cfg.Password,
+	})
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		log.Fatalf("redis ping failed: %v", err)
+	}
+	return redis_rate.NewLimiter(rdb), rdb
 }

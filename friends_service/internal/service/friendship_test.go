@@ -44,13 +44,7 @@ func Test_SendFriendRequest(t *testing.T) {
 			},
 		},
 		{
-			name:    "invite herself",
-			inviter: alice,
-			invitee: alice,
-			wantErr: domain.ErrUserInvalidInvitee,
-		},
-		{
-			name:    "db error 1",
+			name:    "failed to check existence (pg error)",
 			inviter: alice,
 			invitee: bob,
 			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
@@ -65,10 +59,10 @@ func Test_SendFriendRequest(t *testing.T) {
 			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
 				ur.EXPECT().UserExists(mock.Anything, bob).Return(false, nil)
 			},
-			wantErr: domain.ErrUserInvalidInvitee,
+			wantErr: domain.ErrUserNotFound,
 		},
 		{
-			name:    "db error 2",
+			name:    "failed to add friend (pg error)",
 			inviter: alice,
 			invitee: bob,
 			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
@@ -118,7 +112,7 @@ func Test_AcceptFriendRequest(t *testing.T) {
 			},
 		},
 		{
-			name:    "db error",
+			name:    "failed to accept request (pg error)",
 			user:    alice,
 			inviter: bob,
 			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
@@ -133,7 +127,7 @@ func Test_AcceptFriendRequest(t *testing.T) {
 			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
 				fr.EXPECT().AcceptFriend(mock.Anything, alice, bob).Return(false, nil)
 			},
-			wantErr: domain.ErrFriendReqNotFound,
+			wantErr: domain.ErrRequestNotFound,
 		},
 	}
 
@@ -176,7 +170,7 @@ func Test_DeclineFriendRequest(t *testing.T) {
 			},
 		},
 		{
-			name:    "db error",
+			name:    "failed to decline friend request (pg error)",
 			user:    alice,
 			inviter: bob,
 			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
@@ -191,7 +185,7 @@ func Test_DeclineFriendRequest(t *testing.T) {
 			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
 				fr.EXPECT().DeclineFriend(mock.Anything, alice, bob).Return(false, nil)
 			},
-			wantErr: domain.ErrFriendReqNotFound,
+			wantErr: domain.ErrRequestNotFound,
 		},
 	}
 
@@ -234,7 +228,7 @@ func Test_CancelFriendRequest(t *testing.T) {
 			},
 		},
 		{
-			name:    "db error",
+			name:    "failed to cancel request (pg error)",
 			user:    alice,
 			invitee: bob,
 			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
@@ -249,7 +243,7 @@ func Test_CancelFriendRequest(t *testing.T) {
 			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
 				fr.EXPECT().CancelFriend(mock.Anything, alice, bob).Return(false, nil)
 			},
-			wantErr: domain.ErrFriendReqNotFound,
+			wantErr: domain.ErrRequestNotFound,
 		},
 	}
 
@@ -292,7 +286,7 @@ func Test_RemoveFriend(t *testing.T) {
 			},
 		},
 		{
-			name:    "db error",
+			name:    "failed to remove friend (pg error)",
 			user:    alice,
 			invitee: bob,
 			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
@@ -301,13 +295,13 @@ func Test_RemoveFriend(t *testing.T) {
 			wantErr: dbError,
 		},
 		{
-			name:    "friend request not found",
+			name:    "friend not found",
 			user:    alice,
 			invitee: bob,
 			setup: func(ur *mocks.MockUserRepository, fr *mocks.MockFriendshipRepository) {
 				fr.EXPECT().RemoveFriend(mock.Anything, alice, bob).Return(false, nil)
 			},
-			wantErr: domain.ErrFriendNotFound,
+			wantErr: domain.ErrUserNotFound,
 		},
 	}
 

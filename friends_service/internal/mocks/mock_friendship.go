@@ -498,12 +498,12 @@ func (_c *MockFriendship_RemoveFriend_Call) RunAndReturn(run func(ctx context.Co
 	return _c
 }
 
-// SearchFriend provides a mock function for the type MockFriendship
-func (_mock *MockFriendship) SearchFriend(ctx context.Context, userID string, searchUsername string, cursor string) ([]*domain.User, error) {
+// SearchFriends provides a mock function for the type MockFriendship
+func (_mock *MockFriendship) SearchFriends(ctx context.Context, userID string, searchUsername string, cursor string) ([]*domain.User, error) {
 	ret := _mock.Called(ctx, userID, searchUsername, cursor)
 
 	if len(ret) == 0 {
-		panic("no return value specified for SearchFriend")
+		panic("no return value specified for SearchFriends")
 	}
 
 	var r0 []*domain.User
@@ -526,21 +526,21 @@ func (_mock *MockFriendship) SearchFriend(ctx context.Context, userID string, se
 	return r0, r1
 }
 
-// MockFriendship_SearchFriend_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SearchFriend'
-type MockFriendship_SearchFriend_Call struct {
+// MockFriendship_SearchFriends_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SearchFriends'
+type MockFriendship_SearchFriends_Call struct {
 	*mock.Call
 }
 
-// SearchFriend is a helper method to define mock.On call
+// SearchFriends is a helper method to define mock.On call
 //   - ctx context.Context
 //   - userID string
 //   - searchUsername string
 //   - cursor string
-func (_e *MockFriendship_Expecter) SearchFriend(ctx interface{}, userID interface{}, searchUsername interface{}, cursor interface{}) *MockFriendship_SearchFriend_Call {
-	return &MockFriendship_SearchFriend_Call{Call: _e.mock.On("SearchFriend", ctx, userID, searchUsername, cursor)}
+func (_e *MockFriendship_Expecter) SearchFriends(ctx interface{}, userID interface{}, searchUsername interface{}, cursor interface{}) *MockFriendship_SearchFriends_Call {
+	return &MockFriendship_SearchFriends_Call{Call: _e.mock.On("SearchFriends", ctx, userID, searchUsername, cursor)}
 }
 
-func (_c *MockFriendship_SearchFriend_Call) Run(run func(ctx context.Context, userID string, searchUsername string, cursor string)) *MockFriendship_SearchFriend_Call {
+func (_c *MockFriendship_SearchFriends_Call) Run(run func(ctx context.Context, userID string, searchUsername string, cursor string)) *MockFriendship_SearchFriends_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -568,22 +568,22 @@ func (_c *MockFriendship_SearchFriend_Call) Run(run func(ctx context.Context, us
 	return _c
 }
 
-func (_c *MockFriendship_SearchFriend_Call) Return(users []*domain.User, err error) *MockFriendship_SearchFriend_Call {
+func (_c *MockFriendship_SearchFriends_Call) Return(users []*domain.User, err error) *MockFriendship_SearchFriends_Call {
 	_c.Call.Return(users, err)
 	return _c
 }
 
-func (_c *MockFriendship_SearchFriend_Call) RunAndReturn(run func(ctx context.Context, userID string, searchUsername string, cursor string) ([]*domain.User, error)) *MockFriendship_SearchFriend_Call {
+func (_c *MockFriendship_SearchFriends_Call) RunAndReturn(run func(ctx context.Context, userID string, searchUsername string, cursor string) ([]*domain.User, error)) *MockFriendship_SearchFriends_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// SearchUser provides a mock function for the type MockFriendship
-func (_mock *MockFriendship) SearchUser(ctx context.Context, username string, cursor string) ([]*domain.User, error) {
+// SearchUsers provides a mock function for the type MockFriendship
+func (_mock *MockFriendship) SearchUsers(ctx context.Context, username string, cursor string) ([]*domain.User, error) {
 	ret := _mock.Called(ctx, username, cursor)
 
 	if len(ret) == 0 {
-		panic("no return value specified for SearchUser")
+		panic("no return value specified for SearchUsers")
 	}
 
 	var r0 []*domain.User
@@ -606,20 +606,20 @@ func (_mock *MockFriendship) SearchUser(ctx context.Context, username string, cu
 	return r0, r1
 }
 
-// MockFriendship_SearchUser_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SearchUser'
-type MockFriendship_SearchUser_Call struct {
+// MockFriendship_SearchUsers_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SearchUsers'
+type MockFriendship_SearchUsers_Call struct {
 	*mock.Call
 }
 
-// SearchUser is a helper method to define mock.On call
+// SearchUsers is a helper method to define mock.On call
 //   - ctx context.Context
 //   - username string
 //   - cursor string
-func (_e *MockFriendship_Expecter) SearchUser(ctx interface{}, username interface{}, cursor interface{}) *MockFriendship_SearchUser_Call {
-	return &MockFriendship_SearchUser_Call{Call: _e.mock.On("SearchUser", ctx, username, cursor)}
+func (_e *MockFriendship_Expecter) SearchUsers(ctx interface{}, username interface{}, cursor interface{}) *MockFriendship_SearchUsers_Call {
+	return &MockFriendship_SearchUsers_Call{Call: _e.mock.On("SearchUsers", ctx, username, cursor)}
 }
 
-func (_c *MockFriendship_SearchUser_Call) Run(run func(ctx context.Context, username string, cursor string)) *MockFriendship_SearchUser_Call {
+func (_c *MockFriendship_SearchUsers_Call) Run(run func(ctx context.Context, username string, cursor string)) *MockFriendship_SearchUsers_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -642,12 +642,12 @@ func (_c *MockFriendship_SearchUser_Call) Run(run func(ctx context.Context, user
 	return _c
 }
 
-func (_c *MockFriendship_SearchUser_Call) Return(users []*domain.User, err error) *MockFriendship_SearchUser_Call {
+func (_c *MockFriendship_SearchUsers_Call) Return(users []*domain.User, err error) *MockFriendship_SearchUsers_Call {
 	_c.Call.Return(users, err)
 	return _c
 }
 
-func (_c *MockFriendship_SearchUser_Call) RunAndReturn(run func(ctx context.Context, username string, cursor string) ([]*domain.User, error)) *MockFriendship_SearchUser_Call {
+func (_c *MockFriendship_SearchUsers_Call) RunAndReturn(run func(ctx context.Context, username string, cursor string) ([]*domain.User, error)) *MockFriendship_SearchUsers_Call {
 	_c.Call.Return(run)
 	return _c
 }

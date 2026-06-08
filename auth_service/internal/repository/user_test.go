@@ -1,70 +1,57 @@
 package repository
 
 import (
-	"context"
-	"crypto/rand"
-	"encoding/hex"
-	"log"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
+)
+
+var (
+	bobID    = uuid.NewString()
+	bobName  = "bob"
+	bobMail  = "bob@mail.com"
+	bobPW    = "bob"
+	bobPG, _ = bcrypt.GenerateFromPassword([]byte(alicePW), bcrypt.DefaultCost)
 )
 
 func Test_CreateUser(t *testing.T) {
-	pool, cleanup := startPostgres(t)
-	defer cleanup()
+	pool := startPostgres(t)
 
-	uRepo := NewUserRepository(pool)
-	ctx := context.Background()
+	t.Run("success", func(t *testing.T) {
+		uRepo := NewUserRepository(pool)
 
-	bobName := "bob"
-	bobEmail := "bob@mail.com"
-	bobPasswordHash := "bob"
+		user, err := uRepo.CreateUser(t.Context(), bobName, bobMail, bobPW)
+		require.NoError(t, err)
+		require.NotNil(t, user)
+	})
 
-	user, err := uRepo.CreateUser(ctx, bobName, bobEmail, bobPasswordHash)
-	require.NoError(t, err)
-	require.NotNil(t, user, "user is nil")
-}
+	t.Run("user exists", func(t *testing.T) {
+		uRepo := NewUserRepository(pool)
+		_, err := uRepo.CreateUser(t.Context(), aliceName, aliceMail, alicePW)
 
-func Test_CreateUser_ExistUser(t *testing.T) {
-	pool, cleanup := startPostgres(t)
-	defer cleanup()
-
-	uRepo := NewUserRepository(pool)
-	ctx := context.Background()
-	_, err := uRepo.CreateUser(ctx, aliceName, aliceEmail, alicePasswordHash)
-
-	var pgErr *pgconn.PgError
-	require.ErrorAs(t, err, &pgErr)
+		var pgErr *pgconn.PgError
+		require.ErrorAs(t, err, &pgErr)
+		assert.Equal(t, pgErr.Code, "23505")
+	})
 }
 
 func Test_DeleteUser(t *testing.T) {
-	pool, cleanup := startPostgres(t)
-	defer cleanup()
+	pool := startPostgres(t)
+	t.Run("success", func(t *testing.T) {
+		uRepo := NewUserRepository(pool)
+		user, err := uRepo.DeleteUser(t.Context(), aliceID)
+		require.NoError(t, err)
+		require.Equal(t, user.Username, aliceName)
+	})
 
-	uRepo := NewUserRepository(pool)
-	ctx := context.Background()
-	user, err := uRepo.DeleteUser(ctx, aliceID)
-	require.NoError(t, err)
-	require.Equal(t, user.Username, aliceName)
-}
-
-func Test_DeleteUser_NoRows(t *testing.T) {
-	pool, cleanup := startPostgres(t)
-	defer cleanup()
-
-	uRepo := NewUserRepository(pool)
-	ctx := context.Background()
-
-	user, err := uRepo.DeleteUser(ctx, aliceName)
-	log.Println(user, err)
-}
-
-func generateRefreshToken() (string, error) {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(b), nil
+	t.Run("user does not exist", func(t *testing.T) {
+		uRepo := NewUserRepository(pool)
+		user, err := uRepo.DeleteUser(t.Context(), bobID)
+		require.Nil(t, user)
+		require.Nil(t, err)
+	})
 }

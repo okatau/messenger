@@ -2,7 +2,7 @@ env: prod
 
 http:
   port: 7777
-  read_timeout: 10s
+  read_timeout: 5s
   write_timeout: 10s
   shutdown_timeout: 10s
 

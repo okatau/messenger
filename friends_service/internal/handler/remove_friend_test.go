@@ -37,7 +37,7 @@ func Test_Handler_RemoveFriend(t *testing.T) {
 			name:     "friend not found",
 			friendID: bobID,
 			setup: func(svc *mocks.MockFriendship) {
-				svc.EXPECT().RemoveFriend(mock.Anything, aliceID, bobID).Return(domain.ErrFriendNotFound)
+				svc.EXPECT().RemoveFriend(mock.Anything, aliceID, bobID).Return(domain.ErrUserNotFound)
 			},
 			wantStatus: http.StatusNotFound,
 		},

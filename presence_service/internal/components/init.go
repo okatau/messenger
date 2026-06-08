@@ -30,16 +30,10 @@ type Components struct {
 func InitComponents(ctx context.Context, cfg *Config) *Components {
 	logger := service_logger.InitLogger(cfg.Env)
 
-	rdb := redis.NewUniversalClient(&redis.UniversalOptions{
-		Addrs:    cfg.Redis.Addrs,
-		Password: cfg.Redis.Password,
-	})
-	if err := rdb.Ping(ctx).Err(); err != nil {
-		log.Fatalf("redis ping failed: %v", err)
-	}
+	rdb := initRedis(ctx, cfg.Redis)
 
 	repo := repository.NewPresenceRepo(rdb, cfg.OnlineTTL)
-	svc := service.NewPresenceService(repo, logger)
+	svc := service.New(repo, logger)
 
 	return &Components{
 		Svc:    svc,
@@ -51,4 +45,16 @@ func InitComponents(ctx context.Context, cfg *Config) *Components {
 func (c *Components) Shutdown() {
 	//nolint:errcheck // no need to check err
 	c.Rdb.Close()
+}
+
+func initRedis(ctx context.Context, cfg config.RedisConfig) redis.UniversalClient {
+	rdb := redis.NewUniversalClient(&redis.UniversalOptions{
+		Addrs:    cfg.Addrs,
+		Password: cfg.Password,
+	})
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		log.Fatalf("redis ping failed: %v", err)
+	}
+
+	return rdb
 }

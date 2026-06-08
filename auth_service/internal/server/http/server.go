@@ -3,42 +3,51 @@ package httpserver
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
 
 	"github.com/labstack/echo/v5"
 
-	"auth_service/internal/service"
+	"auth_service/internal/components"
 	"auth_service/pkg/config"
-	"auth_service/pkg/service_logger"
+	sl "auth_service/pkg/service_logger"
 )
 
 type Server struct {
-	srv    *http.Server
-	logger *slog.Logger
+	srv   *http.Server
+	comps *components.Components
 }
 
-func New(cfg config.ServerConfig, svc service.Auth, logger *slog.Logger) *Server {
+func New() *Server {
+	ctx := context.Background()
+	cfg := config.Load[components.Config]()
+
+	ctxTimeout, cancelTimeout := context.WithTimeout(ctx, cfg.ServerConfig.ShutdownTimeout)
+	defer cancelTimeout()
+	comps := components.InitComponents(ctxTimeout, cfg)
+
 	router := echo.New()
-	router.Use(service_logger.LoggerMW(logger))
-	registreRoutes(router, svc)
+	router.Use(sl.LoggerMW(comps.Logger))
+	registreRoutes(router, comps.Svc)
 
 	return &Server{
 		srv: &http.Server{
-			Addr:    fmt.Sprintf(":%d", cfg.Port),
+			Addr:    fmt.Sprintf(":%d", cfg.ServerConfig.Port),
 			Handler: router,
 			// ReadTimeout:  cfg.ServerConfig.ReadTimeout,
 			// WriteTimeout: cfg.ServerConfig.WriteTimeout,
 		},
-		logger: logger,
+		comps: comps,
 	}
 }
 
 func (s *Server) Start() error {
-	s.logger.Info(fmt.Sprintf("listening auth service on %s", s.srv.Addr))
+	s.comps.Logger.Info(fmt.Sprintf("listening auth service on %s", s.srv.Addr))
 	return s.srv.ListenAndServe()
 }
 
-func (s *Server) Stop(ctx context.Context) error {
-	return s.srv.Shutdown(ctx)
+func (s *Server) Stop(ctx context.Context) {
+	if err := s.srv.Shutdown(ctx); err != nil {
+		s.comps.Logger.Error("error shutting down server")
+	}
+	s.comps.Shutdown()
 }

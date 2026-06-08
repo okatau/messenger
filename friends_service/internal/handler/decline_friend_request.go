@@ -15,10 +15,10 @@ func DeclineFriendRequest(svc service.Friendship) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		//nolint:errcheck // userID sets in friends_service/internal/middleware/extract_userid.go
 		userID := c.Get("userID").(string)
+
 		var req struct {
 			InviterID string `json:"inviterId"`
 		}
-
 		if err := c.Bind(&req); err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid req body")
 		}
@@ -26,17 +26,17 @@ func DeclineFriendRequest(svc service.Friendship) echo.HandlerFunc {
 		if _, err := uuid.Parse(req.InviterID); err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid inviter id")
 		}
-		err := svc.DeclineFriendRequest(c.Request().Context(), userID, req.InviterID)
 
+		err := svc.DeclineFriendRequest(c.Request().Context(), userID, req.InviterID)
 		if err != nil {
 			switch {
-			case errors.Is(err, domain.ErrFriendReqNotFound):
+			case errors.Is(err, domain.ErrRequestNotFound):
 				return echo.NewHTTPError(http.StatusNotFound, "friend request not found")
 			default:
 				return echo.NewHTTPError(http.StatusInternalServerError, "internal server error")
 			}
 		}
 
-		return c.JSON(http.StatusOK, map[string]string{"message": "friend request declined"})
+		return c.NoContent(http.StatusNoContent)
 	}
 }

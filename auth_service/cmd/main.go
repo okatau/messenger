@@ -2,48 +2,32 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
-	"auth_service/internal/components"
 	httpserver "auth_service/internal/server/http"
-	"auth_service/pkg/config"
-	"auth_service/pkg/service_logger"
+	sl "auth_service/pkg/service_logger"
 )
 
 func main() {
-	ctx := context.Background()
-	cfg := config.Load[components.Config]()
-
-	ctxTimeout, cancelTimeout := context.WithTimeout(ctx, cfg.ServerConfig.ShutdownTimeout)
-	defer cancelTimeout()
-	comps := components.InitComponents(ctxTimeout, cfg)
-
-	comps.Logger.Info(fmt.Sprintf("Running on %s environment", cfg.Env))
-
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
-	srv := httpserver.New(cfg.ServerConfig, comps.Svc, comps.Logger)
+	srv := httpserver.New()
+
 	go func() {
 		if err := srv.Start(); err != nil {
-			comps.Logger.Error("auth service stopped: %v", service_logger.Err(err))
+			log.Printf("auth service stopped: %v", sl.Err(err))
 		}
 	}()
 
 	<-quit
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, cfg.ServerConfig.ShutdownTimeout)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
-	err := srv.Stop(shutdownCtx)
-	if err != nil {
-		comps.Logger.Error("error stopping server: %v", service_logger.Err(err))
-	}
-	comps.Shutdown()
-	if err != nil {
-		comps.Logger.Error("error shutting down comps: %v", service_logger.Err(err))
-	}
+	srv.Stop(shutdownCtx)
 }

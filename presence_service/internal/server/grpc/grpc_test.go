@@ -1,4 +1,4 @@
-package server
+package grpcserver
 
 import (
 	"errors"
@@ -56,7 +56,7 @@ func Test_MarkOnline(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := mocks.NewMockPresence(t)
-			srv := NewPresenceServer(svc)
+			srv := New(svc)
 			tt.setup(svc)
 
 			stt, err := srv.MarkOnline(t.Context(), &pb.MarkOnlineReq{UserId: tt.userID, Metadata: []*pb.MapMetadata{}})
@@ -112,7 +112,7 @@ func Test_Heartbeat(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := mocks.NewMockPresence(t)
-			srv := NewPresenceServer(svc)
+			srv := New(svc)
 			tt.setup(svc)
 
 			stt, err := srv.Heartbeat(t.Context(), &pb.HeartbeatReq{UserId: tt.userID})
@@ -177,7 +177,7 @@ func Test_GetStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := mocks.NewMockPresence(t)
-			srv := NewPresenceServer(svc)
+			srv := New(svc)
 			tt.setup(svc)
 
 			stt, err := srv.GetStatus(t.Context(), &pb.GetStatusReq{UserId: tt.userID})
@@ -244,7 +244,7 @@ func Test_GetBulkStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := mocks.NewMockPresence(t)
-			srv := NewPresenceServer(svc)
+			srv := New(svc)
 			tt.setup(svc)
 
 			res, err := srv.GetBulkStatus(t.Context(), &pb.GetBulkStatusReq{UserIds: tt.userIDs})

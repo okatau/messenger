@@ -42,7 +42,7 @@ func New(
 }
 
 func (s *Server) Start() error {
-	s.logger.Info(fmt.Sprintf("listening auth service on %s", s.srv.Addr))
+	s.logger.Info(fmt.Sprintf("listening friends service on %s", s.srv.Addr))
 	return s.srv.ListenAndServe()
 }
 

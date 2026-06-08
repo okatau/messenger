@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"auth_service/internal/domain"
 	"auth_service/internal/handler/mocks"
 )
 
@@ -22,7 +23,7 @@ func Test_Logout(t *testing.T) {
 	}{
 		{
 			name: "success",
-			body: `{"refresh_token": "refresh_token"}`,
+			body: `{"refreshToken": "refresh_token"}`,
 			setup: func(s *mocks.MockAuth) {
 				s.EXPECT().Logout(mock.Anything, "refresh_token").Return(nil)
 			},
@@ -37,16 +38,25 @@ func Test_Logout(t *testing.T) {
 		},
 		{
 			name:       "invalid refresh token",
-			body:       `{"refresh_token": ""}`,
+			body:       `{"refreshToken": ""}`,
 			setup:      func(s *mocks.MockAuth) {},
 			wantStatus: http.StatusBadRequest,
 			wantErr:    true,
 		},
 		{
-			name: "invalid internal server error",
-			body: `{"refresh_token": "refresh_token"}`,
+			name: "token not found",
+			body: `{"refreshToken": "refreshToken"}`,
 			setup: func(s *mocks.MockAuth) {
-				s.EXPECT().Logout(mock.Anything, "refresh_token").Return(dbError)
+				s.EXPECT().Logout(mock.Anything, "refreshToken").Return(domain.ErrTokenNotFound)
+			},
+			wantStatus: http.StatusUnauthorized,
+			wantErr:    true,
+		},
+		{
+			name: "internal server error",
+			body: `{"refreshToken": "refreshToken"}`,
+			setup: func(s *mocks.MockAuth) {
+				s.EXPECT().Logout(mock.Anything, "refreshToken").Return(dbError)
 			},
 			wantStatus: http.StatusInternalServerError,
 			wantErr:    true,

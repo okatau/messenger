@@ -13,7 +13,7 @@ import (
 func Refresh(auth service.Auth) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		var req struct {
-			RefreshToken string `json:"refresh_token"`
+			RefreshToken string `json:"refreshToken"`
 		}
 
 		if err := c.Bind(&req); err != nil {
@@ -23,23 +23,18 @@ func Refresh(auth service.Auth) echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid refresh token")
 		}
 
-		userInfo, err := auth.Refresh(c.Request().Context(), req.RefreshToken)
+		user, err := auth.Refresh(c.Request().Context(), req.RefreshToken)
 		if err != nil {
 			switch {
 			case errors.Is(err, domain.ErrTokenNotFound):
-				return echo.NewHTTPError(http.StatusNotFound, err.Error())
+				return echo.NewHTTPError(http.StatusUnauthorized, "token not found")
 			case errors.Is(err, domain.ErrTokenExpired):
-				return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+				return echo.NewHTTPError(http.StatusUnauthorized, "token expired")
 			default:
-				return echo.NewHTTPError(http.StatusInternalServerError, "server internal error")
+				return echo.NewHTTPError(http.StatusInternalServerError, "internal server error")
 			}
 		}
 
-		return c.JSON(http.StatusOK, map[string]any{
-			"username":      userInfo.Username,
-			"user_id":       userInfo.UserID,
-			"access_token":  userInfo.AccessToken,
-			"refresh_token": userInfo.RefreshToken,
-		})
+		return c.JSON(http.StatusOK, user)
 	}
 }
